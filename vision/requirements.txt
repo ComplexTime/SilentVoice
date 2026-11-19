@@ -1,0 +1,8 @@
+
+# SilentVoice - Computer Vision Dependencies
+
+# Hand detection and tracking
+mediapipe
+
+# Numerical computing
+numpy
