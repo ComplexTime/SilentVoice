@@ -23,7 +23,7 @@ SEQUENCE_LENGTH = 15
 FEATURE_VECTOR_SIZE = 128
 MIN_CONFIDENCE = 0.80
 
-MOCK_MODE = True
+MOCK_MODE = False
 
 # Groq configuration
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
