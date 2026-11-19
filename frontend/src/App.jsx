@@ -1,122 +1,101 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+// src/App.jsx
 
-function App() {
-  const [count, setCount] = useState(0)
+import "./App.css";
+import { USE_MOCK } from "./config";
 
+function Logo() {
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+    <svg
+      className="brand-logo"
+      viewBox="0 0 48 48"
+      role="img"
+      aria-label="SilentVoice logo"
+    >
+      <rect width="48" height="48" rx="12" fill="#111C2E" />
+      <path
+        d="M10 24c4-8 8-8 12 0s8 8 12 0 3-5 4-6"
+        fill="none"
+        stroke="#2DD4BF"
+        strokeWidth="3.5"
+        strokeLinecap="round"
+      />
+      <path
+        d="M10 32c4-6 8-6 12 0s8 6 12 0 3-4 4-5"
+        fill="none"
+        stroke="#A78BFA"
+        strokeWidth="3.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
 }
 
-export default App
+function App() {
+  return (
+    <div className="app">
+      <a className="skip-link" href="#main">
+        Skip to main content
+      </a>
+
+      <header className="header">
+        <div className="brand">
+          <Logo />
+          <div>
+            <h1 className="brand-name">
+              Silent<span>Voice</span>
+            </h1>
+            <p className="brand-slogan">Give every movement a voice.</p>
+          </div>
+        </div>
+
+        {USE_MOCK ? (
+          <div className="mode-badge mock" role="status">
+            <span className="dot" aria-hidden="true" />
+            MOCK MODE: demo data, not real recognition
+          </div>
+        ) : (
+          <div className="mode-badge live" role="status">
+            <span className="dot" aria-hidden="true" />
+            LIVE: connected to backend
+          </div>
+        )}
+      </header>
+
+      <main id="main" className="layout">
+        <div className="column">
+          <section className="card" aria-labelledby="camera-title">
+            <h2 className="card-title" id="camera-title">
+              <span className="step" aria-hidden="true">1</span>
+              Camera
+            </h2>
+            <div className="placeholder">Camera preview goes here</div>
+          </section>
+        </div>
+
+        <div className="column">
+          <section className="card" aria-labelledby="signs-title">
+            <h2 className="card-title" id="signs-title">
+              <span className="step" aria-hidden="true">2</span>
+              Recognized signs
+            </h2>
+            <div className="placeholder">Recognized sign and history go here</div>
+          </section>
+
+          <section className="card" aria-labelledby="translate-title">
+            <h2 className="card-title" id="translate-title">
+              <span className="step ai" aria-hidden="true">3</span>
+              AI sentence
+            </h2>
+            <div className="placeholder">Translation and Speak button go here</div>
+          </section>
+        </div>
+      </main>
+
+      <footer className="footer">
+        SilentVoice &middot; Hackathon project
+      </footer>
+    </div>
+  );
+}
+
+export default App;
