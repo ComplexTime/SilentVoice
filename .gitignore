@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# JavaScript / React
+node_modules/
+dist/
+build/
+.vite/
+
+# API keys and secrets
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+
+# Operating system
+.DS_Store
+Thumbs.db
+
+# Training data
+data/*
+!data/.gitkeep
+
+# Videos
+*.mp4
+*.avi
+
+# Logs
+*.log
