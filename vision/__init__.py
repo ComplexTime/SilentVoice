@@ -10,6 +10,7 @@ Usage:
     from vision.camera import CameraManager
     from vision.hand_tracking import HandTracker
     from vision.preprocessing import LandmarkPreprocessor
+    from vision.display import DisplayWindow
 
 Run from the project root:
     python -m vision.config          # check settings and model file

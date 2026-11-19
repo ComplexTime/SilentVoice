@@ -5,8 +5,8 @@ Detects and tracks hands using MediaPipe.
 Extracts 21 landmarks from each detected hand
 and identifies whether it is a left or right hand.
 
-Note: MediaPipe's left/right labels assume a mirrored (selfie) image,
-so use CameraManager(mirror=True).
+Left/Right labels are corrected with config.SWAP_HANDEDNESS so that
+"Right" always means the signer's real right hand.
 """
 
 import logging
@@ -39,13 +39,16 @@ class HandTracker:
         (0, 17)
     ]
 
+    HANDEDNESS_SWAP = {"Left": "Right", "Right": "Left"}
+
     def __init__(
         self,
         model_path=None,
         max_hands=None,
         detection_confidence=None,
         presence_confidence=None,
-        tracking_confidence=None
+        tracking_confidence=None,
+        swap_handedness=None
     ):
         """
         Initialize the hand tracker.
@@ -58,6 +61,7 @@ class HandTracker:
             detection_confidence: Minimum detection confidence.
             presence_confidence: Minimum hand presence confidence.
             tracking_confidence: Minimum tracking confidence.
+            swap_handedness: Swap MediaPipe's Left/Right labels.
         """
 
         if model_path is None:
@@ -70,6 +74,8 @@ class HandTracker:
             presence_confidence = config.MIN_HAND_PRESENCE_CONFIDENCE
         if tracking_confidence is None:
             tracking_confidence = config.MIN_TRACKING_CONFIDENCE
+        if swap_handedness is None:
+            swap_handedness = config.SWAP_HANDEDNESS
 
         if max_hands < 1:
             raise ValueError("max_hands must be at least 1.")
@@ -89,6 +95,7 @@ class HandTracker:
         self.detection_confidence = detection_confidence
         self.presence_confidence = presence_confidence
         self.tracking_confidence = tracking_confidence
+        self.swap_handedness = swap_handedness
 
         self.landmarker = None
         self.last_timestamp_ms = -1
@@ -107,9 +114,20 @@ class HandTracker:
                 f"Download it from:\n{config.HAND_LANDMARKER_URL}"
             )
 
+        # Load the model into memory with Python and pass the bytes.
+        # MediaPipe cannot open files whose path contains non-English
+        # characters (e.g. a Hebrew folder name like "מסמכים" on Windows).
+        model_data = self.model_path.read_bytes()
+
+        if not model_data:
+            raise RuntimeError(
+                f"MediaPipe model file is empty: {self.model_path}\n"
+                f"Download it again from:\n{config.HAND_LANDMARKER_URL}"
+            )
+
         options = mp.tasks.vision.HandLandmarkerOptions(
             base_options=mp.tasks.BaseOptions(
-                model_asset_path=str(self.model_path)
+                model_asset_buffer=model_data
             ),
             running_mode=mp.tasks.vision.RunningMode.VIDEO,
             num_hands=self.max_hands,
@@ -186,6 +204,11 @@ class HandTracker:
                 category = results.handedness[index][0]
                 handedness = category.category_name
                 score = float(category.score)
+
+                if self.swap_handedness:
+                    handedness = self.HANDEDNESS_SWAP.get(
+                        handedness, handedness
+                    )
 
             # 21 landmarks normalized to the image (0..1)
             landmarks = [
@@ -297,16 +320,20 @@ if __name__ == "__main__":
     # and as "python hand_tracking.py" (from inside the vision folder).
     try:
         from .camera import CameraManager
+        from .display import DisplayWindow
     except ImportError:
         from camera import CameraManager
+        from display import DisplayWindow
 
     logging.basicConfig(level=logging.INFO)
 
     try:
         with CameraManager() as camera, HandTracker() as tracker:
 
+            window = DisplayWindow(config.TRACKING_WINDOW_NAME)
+
             print("Hand tracking is running.")
-            print("Press Q to exit.")
+            print("F: full screen | Q/ESC: exit")
 
             while True:
 
@@ -333,10 +360,10 @@ if __name__ == "__main__":
                     2
                 )
 
-                cv2.imshow(config.TRACKING_WINDOW_NAME, frame)
+                window.show(frame)
 
-                key = cv2.waitKey(1) & 0xFF
-                if key in config.QUIT_KEYS:
+                key = window.wait_key()
+                if key in config.QUIT_KEYS or window.is_closed():
                     break
 
     except (RuntimeError, FileNotFoundError, ValueError) as error:

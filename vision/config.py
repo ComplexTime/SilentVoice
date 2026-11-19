@@ -56,14 +56,34 @@ CAMERA_WIDTH = 640
 CAMERA_HEIGHT = 480
 
 # Flip frames horizontally (selfie / mirror view).
-# MediaPipe's Left/Right labels assume a mirrored image.
 CAMERA_MIRROR = True
+
+# Tested on our setup: with a mirrored image, MediaPipe reports the
+# hands the wrong way around (right hand = "Left"). Swapping the labels
+# whenever the image is mirrored makes "Right" mean the signer's real
+# right hand. If you change CAMERA_MIRROR, re-check the labels with
+# "python -m vision.hand_tracking".
+SWAP_HANDEDNESS = CAMERA_MIRROR
 
 # Optional OpenCV backend. None = OpenCV default.
 # On Windows, cv2.CAP_DSHOW (= 700) may open the camera faster.
 CAMERA_BACKEND = None
 
 CAMERA_WINDOW_NAME = "SilentVoice - Camera"
+
+
+# ==========================================
+# DISPLAY WINDOW SETTINGS
+# ==========================================
+
+# Starting window size = camera resolution * WINDOW_SCALE
+WINDOW_SCALE = 1.5
+
+# Open windows in full screen
+START_FULLSCREEN = False
+
+# Toggle full screen
+FULLSCREEN_KEYS = frozenset({ord("f"), ord("F")})
 
 
 # ==========================================
@@ -155,6 +175,9 @@ def validate_config():
 
     errors = []
 
+    if WINDOW_SCALE <= 0:
+        errors.append("WINDOW_SCALE must be positive.")
+
     if COORDINATE_TYPE not in ("world", "image"):
         errors.append("COORDINATE_TYPE must be 'world' or 'image'.")
 
@@ -197,6 +220,7 @@ if __name__ == "__main__":
     print(f"Resolution: {CAMERA_WIDTH}x{CAMERA_HEIGHT}")
     print(f"Camera index: {CAMERA_INDEX}")
     print(f"Mirror: {CAMERA_MIRROR}")
+    print(f"Swap handedness labels: {SWAP_HANDEDNESS}")
 
     print("\nHand tracking:")
     print(f"Maximum hands: {MAX_HANDS}")

@@ -31,11 +31,13 @@ import cv2
 try:
     from . import config
     from .camera import CameraManager
+    from .display import DisplayWindow
     from .hand_tracking import HandTracker
     from .preprocessing import LandmarkPreprocessor
 except ImportError:
     import config
     from camera import CameraManager
+    from display import DisplayWindow
     from hand_tracking import HandTracker
     from preprocessing import LandmarkPreprocessor
 
@@ -257,8 +259,11 @@ def main():
             print(f"\nCurrent sign: {label} ({expected_hands} hand(s))")
             print("SPACE: save one sample")
             print("R:     start / stop continuous recording")
+            print("F:     full screen")
             print("Q/ESC: exit")
             print(f"\nDataset location: {collector.output_path}")
+
+            window = DisplayWindow(config.COLLECTION_WINDOW_NAME)
 
             while True:
 
@@ -307,7 +312,7 @@ def main():
                           f"Samples: {collector.sample_count}",
                           (10, 100), (255, 255, 0))
                 draw_text(display_frame,
-                          "SPACE: Save | R: Record | Q: Quit",
+                          "SPACE: Save | R: Record | F: Full | Q: Quit",
                           (10, 135), (255, 255, 255), 0.6)
 
                 if recording:
@@ -319,11 +324,11 @@ def main():
                               (display_frame.shape[1] - 130, 40),
                               (0, 255, 0), 1.0)
 
-                cv2.imshow(config.COLLECTION_WINDOW_NAME, display_frame)
+                window.show(display_frame)
 
-                key = cv2.waitKey(1) & 0xFF
+                key = window.wait_key()
 
-                if key in config.QUIT_KEYS:
+                if key in config.QUIT_KEYS or window.is_closed():
                     break
 
                 if key in config.RECORD_KEYS:

@@ -139,12 +139,19 @@ class CameraManager:
 # Camera testing
 if __name__ == "__main__":
 
+    try:
+        from .display import DisplayWindow
+    except ImportError:
+        from display import DisplayWindow
+
     logging.basicConfig(level=logging.INFO)
 
     try:
         with CameraManager() as camera:
 
-            print("Press Q to exit the camera.")
+            window = DisplayWindow(config.CAMERA_WINDOW_NAME)
+
+            print("F: full screen | Q/ESC: exit")
 
             while True:
                 success, frame = camera.read()
@@ -153,10 +160,10 @@ if __name__ == "__main__":
                     print("Failed to capture frame.")
                     break
 
-                cv2.imshow(config.CAMERA_WINDOW_NAME, frame)
+                window.show(frame)
 
-                key = cv2.waitKey(1) & 0xFF
-                if key in config.QUIT_KEYS:
+                key = window.wait_key()
+                if key in config.QUIT_KEYS or window.is_closed():
                     break
 
     except RuntimeError as error:
