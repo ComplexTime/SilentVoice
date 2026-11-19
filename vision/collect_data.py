@@ -71,8 +71,14 @@ def select_hands(processed_hands, expected_hands):
     """
     Keep only the hands that belong to the sign.
 
-    Returns the `expected_hands` hands with the highest scores,
-    or None if fewer hands were detected.
+    One-hand signs: the hand with the highest score.
+    Two-hand signs: the best "Left" hand and the best "Right" hand.
+    MediaPipe sometimes labels both hands the same; such a frame
+    is skipped, because the model needs to know which hand is which.
+
+    Returns:
+        list | None: The selected hands, or None if the frame
+        does not contain the hands this sign needs.
     """
 
     if len(processed_hands) < expected_hands:
@@ -84,7 +90,17 @@ def select_hands(processed_hands, expected_hands):
         reverse=True
     )
 
-    return ranked[:expected_hands]
+    if expected_hands == 1:
+        return ranked[:1]
+
+    best = {}
+    for hand in ranked:
+        best.setdefault(hand["handedness"], hand)
+
+    if "Left" not in best or "Right" not in best:
+        return None
+
+    return [best["Left"], best["Right"]]
 
 
 class SignDataCollector:
@@ -347,10 +363,16 @@ def main():
 
                 if not ready:
                     if key == config.SAVE_KEY:
-                        print(
-                            f"Need {expected_hands} hand(s), detected "
-                            f"{len(processed_hands)}. Sample not saved."
-                        )
+                        if len(processed_hands) < expected_hands:
+                            print(
+                                f"Need {expected_hands} hand(s), detected "
+                                f"{len(processed_hands)}. Sample not saved."
+                            )
+                        else:
+                            print(
+                                "Both hands got the same Left/Right label. "
+                                "Sample not saved, try again."
+                            )
                     continue
 
                 sample_number = collector.save_sample(
