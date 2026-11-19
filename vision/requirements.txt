@@ -1,0 +1,18 @@
+# SilentVoice - Computer Vision Dependencies
+# Install from the project root:
+#   pip install -r vision/requirements.txt
+#
+# Versions are pinned so the whole team uses the same ones.
+# The MediaPipe API changes between versions.
+
+# Hand detection and tracking
+mediapipe==0.10.32
+
+# Camera, image processing and windows (imported as cv2).
+# Use only ONE OpenCV package: MediaPipe already installs
+# opencv-contrib-python, and having opencv-python installed
+# next to it can break "import cv2".
+opencv-contrib-python
+
+# Numerical computing (used by MediaPipe and OpenCV)
+numpy
