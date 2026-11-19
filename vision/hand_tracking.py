@@ -16,6 +16,12 @@ from pathlib import Path
 import cv2
 import mediapipe as mp
 
+# Works both as "python -m vision.<module>" and from inside the vision folder
+try:
+    from . import config
+except ImportError:
+    import config
+
 logger = logging.getLogger(__name__)
 
 
@@ -33,31 +39,37 @@ class HandTracker:
         (0, 17)
     ]
 
-    DEFAULT_MODEL_PATH = (
-        Path(__file__).resolve().parent.parent
-        / "models"
-        / "hand_landmarker.task"
-    )
-
     def __init__(
         self,
         model_path=None,
-        max_hands=2,
-        detection_confidence=0.5,
-        presence_confidence=0.5,
-        tracking_confidence=0.5
+        max_hands=None,
+        detection_confidence=None,
+        presence_confidence=None,
+        tracking_confidence=None
     ):
         """
         Initialize the hand tracker.
 
+        Any argument left as None uses the value from config.py.
+
         Args:
             model_path: Path to the MediaPipe model.
-                Default: <project root>/models/hand_landmarker.task
             max_hands: Maximum number of hands to detect.
             detection_confidence: Minimum detection confidence.
             presence_confidence: Minimum hand presence confidence.
             tracking_confidence: Minimum tracking confidence.
         """
+
+        if model_path is None:
+            model_path = config.HAND_LANDMARKER_MODEL
+        if max_hands is None:
+            max_hands = config.MAX_HANDS
+        if detection_confidence is None:
+            detection_confidence = config.MIN_HAND_DETECTION_CONFIDENCE
+        if presence_confidence is None:
+            presence_confidence = config.MIN_HAND_PRESENCE_CONFIDENCE
+        if tracking_confidence is None:
+            tracking_confidence = config.MIN_TRACKING_CONFIDENCE
 
         if max_hands < 1:
             raise ValueError("max_hands must be at least 1.")
@@ -70,9 +82,6 @@ class HandTracker:
 
         if any(not 0.0 <= value <= 1.0 for value in confidences):
             raise ValueError("Confidence values must be between 0 and 1.")
-
-        if model_path is None:
-            model_path = self.DEFAULT_MODEL_PATH
 
         self.model_path = Path(model_path)
         self.max_hands = max_hands
@@ -95,7 +104,7 @@ class HandTracker:
         if not self.model_path.is_file():
             raise FileNotFoundError(
                 f"MediaPipe model not found: {self.model_path}\n"
-                "See README.md for where to download hand_landmarker.task."
+                f"Download it from:\n{config.HAND_LANDMARKER_URL}"
             )
 
         options = mp.tasks.vision.HandLandmarkerOptions(
@@ -294,7 +303,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     try:
-        with CameraManager(mirror=True) as camera, HandTracker() as tracker:
+        with CameraManager() as camera, HandTracker() as tracker:
 
             print("Hand tracking is running.")
             print("Press Q to exit.")
@@ -324,10 +333,10 @@ if __name__ == "__main__":
                     2
                 )
 
-                cv2.imshow("SilentVoice - Hand Tracking", frame)
+                cv2.imshow(config.TRACKING_WINDOW_NAME, frame)
 
                 key = cv2.waitKey(1) & 0xFF
-                if key in (ord("q"), ord("Q")):
+                if key in config.QUIT_KEYS:
                     break
 
     except (RuntimeError, FileNotFoundError, ValueError) as error:

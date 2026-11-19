@@ -1,8 +1,9 @@
-
 """
 SilentVoice - Computer Vision Configuration
 
 Central configuration file for the Computer Vision system.
+All other vision modules read their default values from here,
+so a setting only has to be changed in one place.
 
 Stores:
     1. Project paths.
@@ -10,6 +11,11 @@ Stores:
     3. MediaPipe settings.
     4. Preprocessing settings.
     5. Data collection settings.
+
+IMPORTANT: CAMERA_MIRROR, COORDINATE_TYPE and MIRROR_LEFT_HAND
+must be identical when collecting data, when training the model
+and in the app. Changing them after collecting data means the
+old samples were made with different settings.
 """
 
 from pathlib import Path
@@ -28,8 +34,12 @@ MODELS_DIR = PROJECT_ROOT / "models"
 DATA_DIR = PROJECT_ROOT / "data"
 
 # MediaPipe model
-HAND_LANDMARKER_MODEL = (
-    MODELS_DIR / "hand_landmarker.task"
+HAND_LANDMARKER_MODEL = MODELS_DIR / "hand_landmarker.task"
+
+HAND_LANDMARKER_URL = (
+    "https://storage.googleapis.com/mediapipe-models/"
+    "hand_landmarker/hand_landmarker/float16/latest/"
+    "hand_landmarker.task"
 )
 
 # Dataset file
@@ -44,6 +54,14 @@ CAMERA_INDEX = 0
 
 CAMERA_WIDTH = 640
 CAMERA_HEIGHT = 480
+
+# Flip frames horizontally (selfie / mirror view).
+# MediaPipe's Left/Right labels assume a mirrored image.
+CAMERA_MIRROR = True
+
+# Optional OpenCV backend. None = OpenCV default.
+# On Windows, cv2.CAP_DSHOW (= 700) may open the camera faster.
+CAMERA_BACKEND = None
 
 CAMERA_WINDOW_NAME = "SilentVoice - Camera"
 
@@ -60,39 +78,51 @@ MIN_TRACKING_CONFIDENCE = 0.5
 
 HAND_LANDMARK_COUNT = 21
 
+TRACKING_WINDOW_NAME = "SilentVoice - Hand Tracking"
+
 
 # ==========================================
 # 4. PREPROCESSING SETTINGS
 # ==========================================
 
-# Supported values: "world" or "image"
+# Supported values: "world" (recommended) or "image"
 COORDINATE_TYPE = "world"
+
+# Flip left hands so they look like right hands.
+# Lets one model work for right- and left-handed signers.
+MIRROR_LEFT_HAND = False
 
 # Number of coordinates per landmark
 COORDINATES_PER_LANDMARK = 3
 
-# Total features per hand: 21 * 3
-FEATURE_VECTOR_SIZE = (
-    HAND_LANDMARK_COUNT * COORDINATES_PER_LANDMARK
-)
+# Total features per hand: 21 * 3 = 63
+FEATURE_VECTOR_SIZE = HAND_LANDMARK_COUNT * COORDINATES_PER_LANDMARK
+
+# Two-hand feature vector: left hand + right hand = 126
+TWO_HAND_FEATURE_VECTOR_SIZE = FEATURE_VECTOR_SIZE * 2
 
 
 # ==========================================
 # 5. DATA COLLECTION SETTINGS
 # ==========================================
 
-DATASET_FORMAT = "jsonl"
+DATASET_SCHEMA_VERSION = 2
+
+# Continuous recording: minimum time between two saved samples
+CAPTURE_INTERVAL_MS = 150
 
 SAVE_KEY = ord(" ")
-EXIT_KEY = ord("q")
 
-COLLECTION_WINDOW_NAME = (
-    "SilentVoice - Data Collection"
-)
+# Q, q, ESC, and "/" (the Q key on a Hebrew keyboard layout)
+QUIT_KEYS = frozenset({ord("q"), ord("Q"), 27, ord("/")})
+
+RECORD_KEYS = frozenset({ord("r"), ord("R")})
+
+COLLECTION_WINDOW_NAME = "SilentVoice - Data Collection"
 
 
 # ==========================================
-# 6. DIRECTORY MANAGEMENT
+# 6. DIRECTORY MANAGEMENT AND VALIDATION
 # ==========================================
 
 def ensure_directories():
@@ -115,6 +145,40 @@ def validate_model():
     return HAND_LANDMARKER_MODEL.is_file()
 
 
+def validate_config():
+    """
+    Check that the configuration values make sense.
+
+    Returns:
+        list: Error messages. Empty if everything is valid.
+    """
+
+    errors = []
+
+    if COORDINATE_TYPE not in ("world", "image"):
+        errors.append("COORDINATE_TYPE must be 'world' or 'image'.")
+
+    if CAMERA_WIDTH <= 0 or CAMERA_HEIGHT <= 0:
+        errors.append("Camera resolution must be positive.")
+
+    if MAX_HANDS < 1:
+        errors.append("MAX_HANDS must be at least 1.")
+
+    confidences = (
+        MIN_HAND_DETECTION_CONFIDENCE,
+        MIN_HAND_PRESENCE_CONFIDENCE,
+        MIN_TRACKING_CONFIDENCE
+    )
+
+    if any(not 0.0 <= value <= 1.0 for value in confidences):
+        errors.append("Confidence values must be between 0 and 1.")
+
+    if CAPTURE_INTERVAL_MS <= 0:
+        errors.append("CAPTURE_INTERVAL_MS must be positive.")
+
+    return errors
+
+
 # ==========================================
 # 7. CONFIGURATION TEST
 # ==========================================
@@ -129,27 +193,38 @@ if __name__ == "__main__":
 
     print(f"\nProject root: {PROJECT_ROOT}")
 
-    print(f"\nCamera:")
+    print("\nCamera:")
     print(f"Resolution: {CAMERA_WIDTH}x{CAMERA_HEIGHT}")
     print(f"Camera index: {CAMERA_INDEX}")
+    print(f"Mirror: {CAMERA_MIRROR}")
 
-    print(f"\nHand tracking:")
+    print("\nHand tracking:")
     print(f"Maximum hands: {MAX_HANDS}")
-    print(
-        f"Detection confidence: "
-        f"{MIN_HAND_DETECTION_CONFIDENCE}"
-    )
+    print(f"Detection confidence: {MIN_HAND_DETECTION_CONFIDENCE}")
+    print(f"Presence confidence: {MIN_HAND_PRESENCE_CONFIDENCE}")
     print(f"Tracking confidence: {MIN_TRACKING_CONFIDENCE}")
 
-    print(f"\nPreprocessing:")
+    print("\nPreprocessing:")
     print(f"Coordinate type: {COORDINATE_TYPE}")
+    print(f"Mirror left hand: {MIRROR_LEFT_HAND}")
     print(f"Features per hand: {FEATURE_VECTOR_SIZE}")
+    print(f"Features for two hands: {TWO_HAND_FEATURE_VECTOR_SIZE}")
 
-    print(f"\nModel:")
+    print("\nModel:")
     print(f"Model path: {HAND_LANDMARKER_MODEL}")
     print(f"Model exists: {validate_model()}")
 
-    print(f"\nDataset:")
+    if not validate_model():
+        print(f"Download it from:\n{HAND_LANDMARKER_URL}")
+
+    print("\nDataset:")
     print(f"Dataset path: {DATASET_FILE}")
 
-    print("\nConfiguration loaded successfully!")
+    errors = validate_config()
+
+    if errors:
+        print("\nConfiguration errors:")
+        for error in errors:
+            print(f"  - {error}")
+    else:
+        print("\nConfiguration loaded successfully!")

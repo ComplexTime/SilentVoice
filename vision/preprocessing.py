@@ -19,14 +19,20 @@ orientation of the hand can change the meaning of a sign.
 
 import math
 
+# Works both as "python -m vision.<module>" and from inside the vision folder
+try:
+    from . import config
+except ImportError:
+    import config
+
 
 class LandmarkPreprocessor:
     """
     Prepares hand landmarks for machine learning.
     """
 
-    LANDMARK_COUNT = 21
-    FEATURES_PER_HAND = LANDMARK_COUNT * 3  # 63
+    LANDMARK_COUNT = config.HAND_LANDMARK_COUNT            # 21
+    FEATURES_PER_HAND = config.FEATURE_VECTOR_SIZE         # 63
 
     # MCP landmarks used to estimate palm size
     PALM_REFERENCE_INDICES = (5, 9, 13, 17)
@@ -38,12 +44,14 @@ class LandmarkPreprocessor:
 
     def __init__(
         self,
-        coordinate_type="world",
-        mirror_left_hand=False,
-        image_size=(640, 480)
+        coordinate_type=None,
+        mirror_left_hand=None,
+        image_size=None
     ):
         """
         Initialize the preprocessor.
+
+        Any argument left as None uses the value from config.py.
 
         Args:
             coordinate_type (str):
@@ -56,8 +64,16 @@ class LandmarkPreprocessor:
                 and for the app.
             image_size (tuple):
                 (width, height) of the camera frames. Only used
-                when coordinate_type is "image".
+                when coordinate_type is "image". Pass the camera's
+                actual resolution (camera.width, camera.height).
         """
+
+        if coordinate_type is None:
+            coordinate_type = config.COORDINATE_TYPE
+        if mirror_left_hand is None:
+            mirror_left_hand = config.MIRROR_LEFT_HAND
+        if image_size is None:
+            image_size = (config.CAMERA_WIDTH, config.CAMERA_HEIGHT)
 
         if coordinate_type not in ("world", "image"):
             raise ValueError(
@@ -329,7 +345,10 @@ if __name__ == "__main__":
     def close_enough(a, b, tolerance=1e-9):
         return all(abs(x - y) < tolerance for x, y in zip(a, b))
 
-    preprocessor = LandmarkPreprocessor(coordinate_type="world")
+    preprocessor = LandmarkPreprocessor(
+        coordinate_type="world",
+        mirror_left_hand=False
+    )
 
     base = make_hand()
     sample_hand = {
@@ -361,7 +380,10 @@ if __name__ == "__main__":
     )
 
     # 4. Mirroring: a left hand flips the x values only
-    mirroring = LandmarkPreprocessor(mirror_left_hand=True)
+    mirroring = LandmarkPreprocessor(
+        coordinate_type="world",
+        mirror_left_hand=True
+    )
     left = mirroring.process_hand(dict(sample_hand, handedness="Left"))
     right = mirroring.process_hand(sample_hand)
     for (lx, ly, lz), (rx, ry, rz) in zip(
@@ -370,7 +392,10 @@ if __name__ == "__main__":
         assert abs(lx + rx) < 1e-9 and ly == ry and lz == rz
 
     # 5. Image coordinates: aspect ratio is corrected
-    image_pre = LandmarkPreprocessor(coordinate_type="image")
+    image_pre = LandmarkPreprocessor(
+        coordinate_type="image",
+        image_size=(640, 480)
+    )
     image_result = image_pre.process_hand(sample_hand)
     assert len(image_result["features"]) == 63
 

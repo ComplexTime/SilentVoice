@@ -9,6 +9,12 @@ import logging
 
 import cv2
 
+# Works both as "python -m vision.<module>" and from inside the vision folder
+try:
+    from . import config
+except ImportError:
+    import config
+
 logger = logging.getLogger(__name__)
 
 
@@ -24,17 +30,19 @@ class CameraManager:
 
     def __init__(
         self,
-        camera_index=0,
-        width=640,
-        height=480,
-        mirror=True,
+        camera_index=None,
+        width=None,
+        height=None,
+        mirror=None,
         backend=None
     ):
         """
         Initialize the camera manager.
 
         Args:
-            camera_index (int): Camera device index. Default is 0.
+            Any argument left as None uses the value from config.py.
+
+            camera_index (int): Camera device index.
             width (int): Requested frame width.
             height (int): Requested frame height.
             mirror (bool): Flip frames horizontally (selfie view).
@@ -42,11 +50,13 @@ class CameraManager:
             backend (int | None): Optional OpenCV backend,
                 e.g. cv2.CAP_DSHOW on Windows if the camera opens slowly.
         """
-        self.camera_index = camera_index
-        self.width = width
-        self.height = height
-        self.mirror = mirror
-        self.backend = backend
+        self.camera_index = (
+            config.CAMERA_INDEX if camera_index is None else camera_index
+        )
+        self.width = config.CAMERA_WIDTH if width is None else width
+        self.height = config.CAMERA_HEIGHT if height is None else height
+        self.mirror = config.CAMERA_MIRROR if mirror is None else mirror
+        self.backend = config.CAMERA_BACKEND if backend is None else backend
         self.camera = None
 
     def start(self):
@@ -143,10 +153,10 @@ if __name__ == "__main__":
                     print("Failed to capture frame.")
                     break
 
-                cv2.imshow("SilentVoice - Camera Test", frame)
+                cv2.imshow(config.CAMERA_WINDOW_NAME, frame)
 
                 key = cv2.waitKey(1) & 0xFF
-                if key in (ord("q"), ord("Q")):
+                if key in config.QUIT_KEYS:
                     break
 
     except RuntimeError as error:
