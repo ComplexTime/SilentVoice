@@ -11,7 +11,7 @@ SilentVoice is an AI-powered accessibility prototype developed by a four-person 
 | Feature | Support |
 | --- | --- |
 | Word recognition | YES, NO, MORE, STOP, FINISH |
-| Alphabet recognition | 24 static ASL letters (A–Z excluding J and Z) |
+| Alphabet recognition | All 26 letters: 24 static letters plus experimental motion-based J and Z |
 | Gesture rejection | UNKNOWN when the model rejects a prediction |
 | Fingerspelling | Letter confirmation, editable buffer, repeated letters, space and backspace |
 | Sentence construction | Confirm signs or completed words before sending them to the LLM |
@@ -19,7 +19,16 @@ SilentVoice is an AI-powered accessibility prototype developed by a four-person 
 | Speech | English and Russian verified; Hebrew depends on browser voice availability |
 | Learning guide | ASL alphabet reference in Alphabet mode |
 
-J and Z require motion and are not supported by the current alphabet classifier. SilentVoice is a limited-vocabulary research prototype, not a complete ASL translator or a replacement for a qualified interpreter.
+J and Z require motion and are recognized by a separate dynamic classifier. Its integration has been tested during development, but live accuracy and signer-independent performance have not been quantified. SilentVoice is a limited-vocabulary research prototype, not a complete ASL translator or a replacement for a qualified interpreter.
+
+## Team and contributors
+
+| GitHub | Role and contributions |
+| --- | --- |
+| [**ComplexTime**](https://github.com/ComplexTime) | Project lead, backend development and system integration |
+| [**avichayelia**](https://github.com/avichayelia) | Computer vision and hand tracking |
+| [**ronw12317**](https://github.com/ronw12317) | Machine learning |
+| [**gapa66649-ctrl**](https://github.com/gapa66649-ctrl) | Frontend development |
 
 ## Architecture
 
@@ -29,10 +38,13 @@ flowchart TD
     B --> C[MediaPipe hand tracking]
     C --> D[Raw 15 x 128 feature sequence]
     D --> E[Word normalization: 1920 features]
-    D --> F[Alphabet normalization: 63 features per valid frame]
+    D --> N[Dynamic alphabet movement features]
+    N --> O{J or Z score >= 0.35?}
+    O -->|Yes| I[Sign and confidence]
+    O -->|No or model unavailable| F[Static alphabet normalization: 63 features per valid frame]
     E --> G[Word Random Forest]
-    F --> H[Alphabet Random Forest and frame aggregation]
-    G --> I[Sign and confidence]
+    F --> H[Static alphabet Random Forest and frame aggregation]
+    G --> I
     H --> I
     I --> J[User confirmation and word history]
     J --> K[Groq GPT-OSS 120B]
@@ -40,7 +52,7 @@ flowchart TD
     L --> M[Browser text-to-speech]
 ```
 
-The frontend captures 15 frames at approximately 100 ms intervals, at 640 × 480 resolution. Only the preview is mirrored; the captured images are not. The raw feature vector contains 63 coordinates for each hand and two hand-presence flags. Word and alphabet models are independent and use different normalization pipelines.
+The frontend captures 15 frames at approximately 100 ms intervals, at 640 × 480 resolution. Only the preview is mirrored; the captured images are not. The raw feature vector contains 63 coordinates for each hand and two hand-presence flags. The three recognition models use separate features and artifacts. Word recognition remains independent. Alphabet recognition first checks the dynamic classifier, then falls back to the static classifier when the dynamic predictor returns no result.
 
 ## 1. Installation (Windows PowerShell)
 
@@ -119,9 +131,10 @@ python -c "from pathlib import Path; from urllib.request import urlretrieve; fro
 ```powershell
 Test-Path ml/models/asl_model.joblib
 Test-Path ml/models/alphabet_model.joblib
+Test-Path ml/models/dynamic_alphabet_model.joblib
 ```
 
-If both commands return `True` and the files are from a trusted, compatible source, training is not necessary to run the application. Otherwise, follow the training sections below for the missing model. Model and dataset availability can differ between computers.
+If all three commands return `True` and the files are from a trusted, compatible source, training is not necessary. Otherwise, follow the training sections below for the missing models. The dynamic model is optional for the original 24 static letters; without it, the alphabet predictor falls back to static recognition. Model and dataset availability can differ between computers.
 
 ## 2. Train the word recognition model
 
@@ -199,9 +212,9 @@ python -m ml.dataset --real
 
 These are historical development results, not guarantees for a fresh training run. The same development split was used during tuning. The inference latency excludes camera capture, hand tracking, networking and LLM processing.
 
-## 3. Train the alphabet recognition model
+## 3. Train the static alphabet recognition model
 
-The alphabet classifier recognizes 24 static letters using 63 normalized features per valid single-hand frame. It averages the predicted class probabilities across valid frames and rejects low-confidence predictions. The word model is not modified by this process.
+The static alphabet classifier recognizes 24 static letters using 63 normalized features per valid single-hand frame. It averages the predicted class probabilities across valid frames and rejects low-confidence predictions. The word model is not modified by this process.
 
 ### 3.1 Download the alphabet dataset
 
@@ -313,6 +326,103 @@ Expected:
 
 The selected threshold prioritizes recognition coverage while allowing manual confirmation. These are image-level development results from the dataset's original Test folder, which was used for threshold selection. Signer independence was not verified. Unsupported-gesture rejection and live video accuracy require separate evaluation; the reported accuracy is not a live webcam benchmark.
 
+### 3.5 Train the dynamic alphabet model (J and Z)
+
+J and Z require a sequence of movements rather than a single static pose. SilentVoice uses a separate Random Forest with wrist and fingertip trajectories, wrist-relative hand shape, velocity, path length, movement range and final displacement. Handedness is canonicalized, missing landmarks are interpolated, and one clip-level scale is used to preserve motion. The feature vector has 930 values. Neither the word model nor the existing static alphabet model is overwritten.
+
+#### Download the dynamic dataset
+
+Download the dynamic frame archive (`ASL_dynamic.zip`) from [SignAlphaSet on Mendeley Data](https://data.mendeley.com/datasets/8fmvr9m98w/3). This link points to version 3; the exact version used in the hackathon run was not recorded. Review the dataset's license and citation instructions before use or redistribution.
+
+Place the downloaded archive at `data/alphabet_dynamic/dataset.zip` and extract it:
+
+```powershell
+New-Item -ItemType Directory -Force data/alphabet_dynamic
+Expand-Archive -Path data/alphabet_dynamic/dataset.zip -DestinationPath data/alphabet_dynamic -Force
+tree data\alphabet_dynamic /A
+```
+
+The extractor searches recursively for clip folders ending in `_frames`. Each clip's parent directory must have the gesture label. An additional archive parent folder is fine. Example:
+
+```text
+data/alphabet_dynamic/
+    ... optional parent folder ...
+        J/
+            J_clip1_frames/
+            J_clip2_frames/
+            ...
+        Z/
+            Z_clip1_frames/
+            Z_clip2_frames/
+            ...
+        A/
+            A_clip1_frames/
+            ...
+        ... other letters and word gestures ...
+```
+
+Keep the other gestures: they provide the `OTHER` class, essential for preventing ordinary hand poses and movements from being incorrectly classified as J or Z. The dataset uses extracted images, so no video decoding step is required.
+
+#### Extract movement sequences
+
+Activate the virtual environment and run:
+
+```powershell
+python -m ml.dynamic_alphabet_dataset
+```
+
+The script naturally sorts frames within each clip, samples 15 frames across its duration, pads/resizes them to 640 × 480, extracts MediaPipe landmarks, and rejects clips with too few valid single-hand frames. The output is `data/dynamic_alphabet_training.npz` with raw `X`, labels `y` and clip paths `sources`.
+
+The recorded extraction run found 290 clips, accepted 254 (shape `(254, 15, 128)`), and rejected 36. The retained labels were 10 J, 7 Z and 237 OTHER.
+
+#### Train and evaluate the dynamic classifier
+
+In `ml/dynamic_alphabet_features.py`, the final development configuration uses `MIN_VALID_FRAMES = 8` for a consistent hand slot. In `ml/dynamic_alphabet_train.py`, set `CONFIDENCE_THRESHOLD = 0.35`. This is separate from the static alphabet threshold even though both currently use the same numeric value.
+
+```powershell
+python -m ml.dynamic_alphabet_train
+```
+
+The script extracts movement features, trains a class-balanced Random Forest with 300 trees, evaluates using stratified five-fold cross-validation for the recorded dataset, and saves the final model to `ml/models/dynamic_alphabet_model.joblib`. The cross-validation decision rule must match inference: choose whichever of J and Z has the larger predicted probability, and return that letter only if its probability meets the threshold (otherwise return OTHER). This rule deliberately does not require the dynamic letter to outrank OTHER.
+
+To confirm that the saved artifact loads and has the expected classes and threshold:
+
+```powershell
+python -c "from ml.dynamic_alphabet_predict import load_dynamic_model; a=load_dynamic_model(); print('Classes:',a['classes']); print('Threshold:',a['confidence_threshold']); print('Features:',a['num_features'])"
+```
+
+Expected classes: J, OTHER and Z; threshold: 0.35; features: 930. Use only trusted local model artifacts. Restart the backend after retraining because the model is cached.
+
+#### Recorded dynamic alphabet development results
+
+| Actual / predicted | J | Z | OTHER |
+| --- | ---: | ---: | ---: |
+| J | 10 | 0 | 0 |
+| Z | 2 | 5 | 0 |
+| OTHER | 7 | 0 | 230 |
+
+| Metric | Result |
+| --- | ---: |
+| Overall development accuracy | 96.46% (245/254) |
+| J recall | 100% (10/10) |
+| Z recall | 71.43% (5/7) |
+| OTHER recall | 97.05% (230/237) |
+| OTHER false positive rate | 2.95% (7/237) |
+
+These are cross-validation development results, not live webcam accuracy. Only 17 positive recordings were available, signer independence was not established, and the threshold was selected on these same cross-validation results. Overall accuracy is dominated by OTHER examples. The full 26-letter system has not been evaluated on an independent benchmark. Full-clip resampling can also differ from the fixed live camera recording window.
+
+#### Integration and live testing
+
+`ml/dynamic_alphabet_predict.py` loads the dynamic artifact, extracts the shared movement features and returns a J or Z result if the threshold is met. `ml/alphabet_predict.py` invokes this predictor before its original static recognition logic. If dynamic prediction returns `None`, the static classifier processes the same sequence. No change to the Vision frame format, API schema or word model is required.
+
+For local testing, confirm the import:
+
+```powershell
+python -c "from ml.alphabet_predict import predict_letter; print('Integration OK')"
+```
+
+Restart the backend, select Alphabet mode and perform the entire J or Z movement during the recording window. Check `[DYNAMIC]` probability logs in the backend terminal. Test static letters such as I, D, A and B repeatedly to detect false dynamic overrides. If necessary, temporarily move the dynamic artifact outside `ml/models/` and restart the backend to restore the 24-letter fallback while debugging.
+
 ## 4. Run SilentVoice
 
 ### Configuration
@@ -361,7 +471,7 @@ Open **<http://localhost:5173>** and allow camera access. Keep both terminals op
 
 1. Start the webcam.
 2. Select Word mode or Alphabet mode.
-3. Perform a supported sign or hold a letter pose and press Record Sign/Record Letter.
+3. Perform a supported word sign or hold a static letter pose and press Record Sign/Record Letter. For J or Z, press Record Letter and complete the movement during the 15-frame recording window.
 4. Review the result and confidence. Confirm the prediction or discard it and retry.
 5. In Alphabet mode, confirm letters one by one and add the completed word to the sentence history. The learning guide displays the ASL hand positions.
 6. Select English, Hebrew or Russian and press Translate.
@@ -395,6 +505,12 @@ Example alphabet response:
 
 ```json
 {"sign": "A", "confidence": 0.91}
+```
+
+Example dynamic alphabet response (illustrative):
+
+```json
+{"sign": "J", "confidence": 0.52}
 ```
 
 Example rejection:
@@ -454,6 +570,7 @@ Check the raw `(15, 128)` feature shape, valid `(N, 63)` alphabet samples, and t
 | Failed to fetch / CORS | Confirm ports 8000 and 5173 and the frontend origin allowed in `backend/config.py`. |
 | Camera capture fails | Release the camera in other applications; verify desktop and browser camera permissions. On Windows, OpenCV DirectShow can be an alternative to MSMF. |
 | Most letters are UNKNOWN | Verify the saved alphabet threshold, hand visibility, lighting and pose; restart backend after artifact changes. |
+| J/Z not recognized or static letters misidentified as J/Z | Check the dynamic model file and `[DYNAMIC]` scores, complete the movement inside the capture window, and compare with the static-only fallback. |
 | Translation fails | Check the Groq key, network access and provider limits. Never print or share the key. |
 | Hebrew voice unavailable | Try Edge with a compatible installed voice, or use Hebrew text with English/Russian speech as fallback. |
 | OpenCV conflict | Keep only the OpenCV distribution required by the root requirements file. |
@@ -494,9 +611,14 @@ SilentVoice/
     alphabet_dataset.py
     alphabet_train.py
     alphabet_predict.py
+    dynamic_alphabet_dataset.py
+    dynamic_alphabet_features.py
+    dynamic_alphabet_train.py
+    dynamic_alphabet_predict.py
     models/
       asl_model.joblib
       alphabet_model.joblib
+      dynamic_alphabet_model.joblib
   frontend/
     public/asl-alphabet.svg
     src/
@@ -506,6 +628,7 @@ SilentVoice/
       config.js
       captureFrames.js
       components/
+        AlphabetGuide.jsx
     package.json
   tests/test_alphabet_features.py
   data/
@@ -517,13 +640,15 @@ SilentVoice/
 
 ## 8. Development and demonstration
 
-The team divided work across backend/integration, computer vision, machine learning and frontend. Keep the two recognition models independent, maintain the shared API contract and update the corresponding documentation when changing it.
+The team divided work across backend/integration, computer vision, machine learning and frontend. Keep the three recognition artifacts separate, maintain the shared API contract and update the corresponding documentation when changing it.
 
 Before presenting:
 
-- [ ] Start the backend and frontend on the presenting laptop; verify both model files and the MediaPipe bundle.
+- [ ] Start the backend and frontend on the presenting laptop; verify all three model files and the MediaPipe bundle.
 - [ ] Verify that mock mode is disabled and camera permissions are granted.
-- [ ] Test multiple supported word signs and static letters using live recordings.
+- [ ] Test multiple supported word signs, static letters and dynamic J/Z gestures using live recordings.
+- [ ] Verify ordinary letters are not incorrectly overridden by the dynamic classifier.
+- [ ] Ensure the frontend learning guide and any support labels reflect the actual enabled recognition modes (the earlier J/Z unsupported notice may need updating).
 - [ ] Confirm repeated letters, backspace, word construction, clearing and UNKNOWN rejection.
 - [ ] Generate a sentence using multiple confirmed words and test all three text languages.
 - [ ] Verify English or Russian speech and keep a working fallback language selected.
@@ -537,6 +662,7 @@ Use targeted Git staging and coordinate changes with teammates. Never force-push
 - **ASL Citizen:** [Microsoft Research project](https://www.microsoft.com/en-us/research/project/asl-citizen/) and [dataset license](https://www.microsoft.com/en-us/research/project/asl-citizen/dataset-license/). The dataset is subject to non-commercial research-use restrictions.
 - **Alphabet dataset:** Cabana Garceran del Vall, Elisa (2025), *American Sign Language Alphabet Dataset*, Mendeley Data, V1. <https://doi.org/10.17632/jdyksv2jhh.1>. Licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). SilentVoice samples the images, resizes/pads them and extracts normalized hand landmarks to train a separate classifier.
 - **Associated alphabet research paper:** Cabana, E. (2025). *Advancing Accessible AI: A Comprehensive Dataset and Neural Models for Real-Time American Sign Language Alphabet Classification*. In Intelligent Systems and Applications, IntelliSys 2025, Lecture Notes in Networks and Systems, vol. 1567, Springer, Cham. <https://doi.org/10.1007/978-3-032-00071-2_15>.
+- **Dynamic alphabet dataset:** [SignAlphaSet, Mendeley Data](https://data.mendeley.com/datasets/8fmvr9m98w/3). SilentVoice uses its extracted dynamic clip frames, samples 15 frames per clip and derives movement landmarks for J, Z and OTHER. Confirm the exact downloaded version, creator attribution and license on the dataset record before publishing derived artifacts; these details were not recorded in the training output.
 - **ASL reference chart:** Darren Stone (Ds13), vectorized by Marnanel, derived from David Rakowski's Gallaudet-TT font. [Wikimedia Commons source](https://commons.wikimedia.org/wiki/File:Asl_alphabet_gallaudet.svg), marked public domain by the author.
 - **Hand tracking:** [Google MediaPipe Hand Landmarker](https://developers.google.com/edge/mediapipe/solutions/vision/hand_landmarker).
 
@@ -544,13 +670,14 @@ Third-party datasets, assets and models retain their respective terms. Do not as
 
 ## 10. Limitations and future work
 
-- Limited ASL word vocabulary and 24 static letters; motion-based J and Z are future work.
+- Limited ASL word vocabulary; the alphabet pipeline supports 24 static letters and experimental dynamic J/Z recognition.
+- The dynamic classifier has a small positive training set and can override static predictions incorrectly; full A–Z live accuracy has not been independently established.
 - Recognition quality depends on the signer, gesture execution, lighting, camera position and training coverage.
 - Classifier confidence is not a calibrated guarantee of correctness. Alphabet rejection has not been independently validated against arbitrary non-letter gestures.
 - Signs are captured individually, not continuously; ASL grammar and non-manual signals are not fully modeled.
 - Translation requires internet access and may introduce wording not intended by the signer.
 - Speech depends on the browser's available voices. Hebrew speech is deferred.
-- Future work includes signer-independent validation, expanded vocabulary, dynamic-letter recognition, improved rejection and evaluation with experienced ASL users.
+- Future work includes signer-independent validation, expanded vocabulary, more diverse dynamic-letter recordings, improved rejection and evaluation with experienced ASL users.
 
 ---
 

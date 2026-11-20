@@ -1,0 +1,63 @@
+Training shape: (254, 930)
+J: 10
+OTHER: 237
+Z: 7
+
+Evaluating classifier...
+
+DYNAMIC THRESHOLD TEST
+Threshold: 0.10 | J: 10/10 | Z: 5/7 | False positives: 39/237
+Threshold: 0.15 | J: 10/10 | Z: 5/7 | False positives: 27/237
+Threshold: 0.20 | J: 10/10 | Z: 5/7 | False positives: 21/237
+Threshold: 0.25 | J: 10/10 | Z: 5/7 | False positives: 11/237
+Threshold: 0.30 | J: 10/10 | Z: 5/7 | False positives: 9/237
+Threshold: 0.35 | J: 10/10 | Z: 5/7 | False positives: 7/237
+Threshold: 0.40 | J: 9/10 | Z: 3/7 | False positives: 3/237
+Threshold: 0.45 | J: 8/10 | Z: 3/7 | False positives: 3/237
+Threshold: 0.50 | J: 7/10 | Z: 2/7 | False positives: 1/237
+Threshold: 0.55 | J: 5/10 | Z: 2/7 | False positives: 0/237
+Threshold: 0.60 | J: 2/10 | Z: 2/7 | False positives: 0/237
+
+DYNAMIC THRESHOLD TEST
+Threshold 0.10 | J: 10/10 | Z: 5/7 | False positives: 39
+Threshold 0.15 | J: 10/10 | Z: 5/7 | False positives: 29
+Threshold 0.20 | J: 10/10 | Z: 5/7 | False positives: 21
+Threshold 0.25 | J: 10/10 | Z: 5/7 | False positives: 12
+Threshold 0.30 | J: 10/10 | Z: 5/7 | False positives: 9
+Threshold 0.35 | J: 10/10 | Z: 5/7 | False positives: 7
+Threshold 0.40 | J: 9/10 | Z: 3/7 | False positives: 4
+Threshold 0.50 | J: 7/10 | Z: 2/7 | False positives: 1
+Threshold 0.60 | J: 2/10 | Z: 2/7 | False positives: 0
+
+RAW CLASSIFICATION REPORT
+              precision    recall  f1-score   support
+
+           J     0.6667    0.8000    0.7273        10
+           Z     1.0000    0.5714    0.7273         7
+       OTHER     0.9832    0.9873    0.9853       237
+
+    accuracy                         0.9685       254
+   macro avg     0.8833    0.7863    0.8133       254
+weighted avg     0.9712    0.9685    0.9680       254
+
+
+THRESHOLD CLASSIFICATION REPORT
+              precision    recall  f1-score   support
+
+           J     1.0000    0.2000    0.3333        10
+           Z     1.0000    0.2857    0.4444         7
+       OTHER     0.9480    1.0000    0.9733       237
+
+    accuracy                         0.9488       254
+   macro avg     0.9827    0.4952    0.5837       254
+weighted avg     0.9515    0.9488    0.9335       254
+
+CONFUSION MATRIX
+Order: J, Z, OTHER
+[[  2   0   8]
+ [  0   2   5]
+ [  0   0 237]]
+
+Training final model...
+
+MODEL SAVED: C:\Users\Edwin S\Desktop\hackatonProg\SilentVoice\ml\models\dynamic_alphabet_model.joblib

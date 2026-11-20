@@ -1,4 +1,4 @@
-
+from ml.dynamic_alphabet_predict import predict_dynamic_letter
 import joblib
 import numpy as np
 
@@ -36,7 +36,12 @@ def predict_letter(sequence):
         raise ValueError(
             f"Invalid sequence shape: {sequence.shape}"
         )
+    # Dynamic alphabet recognition (J and Z)
+    dynamic_result = predict_dynamic_letter(sequence)
 
+    if dynamic_result is not None:
+        return dynamic_result
+     # Static alphabet recognition (24 letters)
     samples = sequence_to_alphabet_samples(
         sequence
     )
