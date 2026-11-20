@@ -7,6 +7,7 @@ Usage (from the repo root, venv active):
 
 Only load joblib files produced by our own team: joblib uses pickle internally.
 """
+from ml.augment import augment_training
 import argparse
 import platform
 import time
@@ -28,12 +29,12 @@ from ml.dataset import (
     validate_dataset,
 )
 
-
 def build_model():
     return RandomForestClassifier(
         n_estimators=config.N_ESTIMATORS,
         random_state=config.RANDOM_STATE,
         n_jobs=config.N_JOBS,
+        class_weight="balanced"
     )
 
 
@@ -54,7 +55,9 @@ def train(X, y, groups, synthetic=False):
 
     model = build_model()
     start = time.perf_counter()
-    model.fit(X_flat[train_idx], y[train_idx])
+    X_train, y_train = augment_training(X[train_idx],y[train_idx],copies=5)
+    print("Augmented training shape:", X_train.shape)
+    model.fit(X_train, y_train)
     seconds = time.perf_counter() - start
     print(f"Training took {seconds:.2f} s")
 

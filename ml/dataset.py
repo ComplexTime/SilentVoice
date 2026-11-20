@@ -5,6 +5,7 @@ Data contract (agreed with the team, do not change):
   X: (N, 15, 128) float32, y: (N,) sign labels, groups: (N,) participant/session ids.
   Per frame: 0-62 left hand XYZ, 63-125 right hand XYZ, 126/127 left/right detected.
 """
+from ml.normalize import normalize_sequence
 import argparse
 import warnings
 from pathlib import Path
@@ -109,11 +110,21 @@ def load_npz(path=config.DATA_PATH):
 
 
 def flatten_sequences(X):
-    """(N, 15, 128) -> (N, 1920)."""
-    X = np.asarray(X)
-    if X.ndim != 3 or X.shape[1:] != (config.NUM_FRAMES, config.NUM_FEATURES):
-        raise ValueError(f"Expected (N, {config.NUM_FRAMES}, {config.NUM_FEATURES}), got {X.shape}")
-    return X.reshape(X.shape[0], config.FLAT_FEATURES)
+
+    X = np.asarray(X, dtype=np.float32)
+
+    if X.ndim != 3 or X.shape[1:] != (15, 128):
+        raise ValueError("Invalid dataset shape")
+
+    normalized = np.stack([
+        normalize_sequence(sequence)
+        for sequence in X
+    ])
+
+    return normalized.reshape(
+        len(normalized),
+        config.FLAT_FEATURES
+    )
 
 
 def group_train_test_split(y, groups, test_size=config.TEST_SIZE,

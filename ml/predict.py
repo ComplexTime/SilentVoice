@@ -9,6 +9,7 @@ Importing this module never trains and never loads the model: the model is loade
 lazily on the first prediction and then reused.
 Only load joblib files produced by our own team: joblib uses pickle internally.
 """
+from ml.dataset import flatten_sequences
 import argparse
 import threading
 import time
@@ -86,7 +87,7 @@ def predict_sign(sequence):
 
     artifact = _artifact if _artifact is not None else load_model()
     model = artifact["model"]
-    probs = model.predict_proba(seq.reshape(1, -1))[0]
+    probs = model.predict_proba(flatten_sequences(seq[None, ...]))[0]
     best = int(np.argmax(probs))
     sign = str(model.classes_[best])
     confidence = float(min(max(probs[best], 0.0), 1.0))

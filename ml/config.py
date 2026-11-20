@@ -20,7 +20,7 @@ RIGHT_DETECTED_IDX = 127
 
 # ---------- Prediction ----------
 UNKNOWN_LABEL = "UNKNOWN"
-CONFIDENCE_THRESHOLD = 0.80  # starting value, to be tuned on real test data
+CONFIDENCE_THRESHOLD = 0.35  # starting value, to be tuned on real test data
 
 # ---------- Model (starting parameters, not guaranteed optimal) ----------
 N_ESTIMATORS = 100
