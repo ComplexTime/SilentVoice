@@ -2,10 +2,11 @@
 import { API_BASE_URL, FRAME_COUNT, LANGUAGES, USE_MOCK } from "./config";
 
 export class ApiError extends Error {
-  constructor(message, kind = "unknown") {
+  constructor(message, kind = "unknown", status = null) {
     super(message);
     this.name = "ApiError";
-    this.kind = kind; // "network" | "timeout" | "http" | "invalid" | "input"
+    this.kind = kind; // "network" | "timeout" | "http" | "invalid" | "input" | "unavailable"
+    this.status = status;
   }
 }
 
@@ -48,7 +49,11 @@ async function postJson(path, body, timeoutMs = 15000) {
     if (!response.ok) {
       const detail =
         data && typeof data.detail === "string" ? " " + data.detail : "";
-      throw new ApiError(`Backend error (${response.status}).${detail}`, "http");
+      throw new ApiError(
+        `Backend error (${response.status}).${detail}`,
+        "http",
+        response.status
+      );
     }
     if (data === null) {
       throw new ApiError("The backend returned an invalid response.", "invalid");
@@ -59,9 +64,7 @@ async function postJson(path, body, timeoutMs = 15000) {
   }
 }
 
-// POST /api/predict
-// Returns { sign, confidence, mock }
-export async function predictSign(frames) {
+function checkFrames(frames) {
   if (!Array.isArray(frames) || frames.length !== FRAME_COUNT) {
     throw new ApiError(`Expected exactly ${FRAME_COUNT} frames.`, "input");
   }
@@ -71,13 +74,33 @@ export async function predictSign(frames) {
       "input"
     );
   }
+}
+
+// Shared by word and alphabet prediction (same request, same response shape)
+async function requestPrediction(path, frames, mockResult) {
+  checkFrames(frames);
 
   if (USE_MOCK) {
     await sleep(700);
-   return { sign: "WATER", confidence: 0.94, mock: true };
+    return mockResult();
   }
 
-  const data = await postJson("/api/predict", { frames });
+  let data;
+  try {
+    data = await postJson(path, { frames });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      throw new ApiError(
+        path.includes("alphabet")
+          ? "Alphabet recognition is not available yet because the model is still being prepared. Switch to Word mode for now."
+          : "The recognition service is temporarily unavailable. Please try again.",
+        "unavailable",
+        503
+      );
+    }
+    throw err;
+  }
+
   const okSign = typeof data.sign === "string" && data.sign.trim() !== "";
   const okConf =
     typeof data.confidence === "number" &&
@@ -93,8 +116,35 @@ export async function predictSign(frames) {
   return { sign: data.sign.trim(), confidence: data.confidence, mock: false };
 }
 
+// POST /api/predict  (word mode)
+export function predictSign(frames) {
+  return requestPrediction("/api/predict", frames, () => ({
+    sign: "WATER",
+    confidence: 0.94,
+    mock: true,
+  }));
+}
+
+// POST /api/predict/alphabet  (alphabet mode)
+const MOCK_LETTERS = ["H", "E", "L", "L", "O"];
+let mockLetterIndex = 0;
+
+export function predictLetter(frames) {
+  return requestPrediction("/api/predict/alphabet", frames, () => {
+    const sign = MOCK_LETTERS[mockLetterIndex % MOCK_LETTERS.length];
+    mockLetterIndex += 1;
+    return { sign, confidence: 0.91, mock: true };
+  });
+}
+
 // POST /api/translate
 // Returns { sentence, mock }
+const MOCK_SENTENCES = {
+  en: "I would like some water.",
+  he: "אני רוצה קצת מים.",
+  ru: "Я хотел бы немного воды.",
+};
+
 export async function translateSigns(signs, language) {
   if (!Array.isArray(signs) || signs.length === 0) {
     throw new ApiError("Add at least one sign before translating.", "input");
@@ -105,7 +155,12 @@ export async function translateSigns(signs, language) {
 
   if (USE_MOCK) {
     await sleep(800);
-    return { sentence: "I would like some water.", mock: true };
+    const onlyWater = signs.length === 1 && signs[0].toUpperCase() === "WATER";
+    const sentence = onlyWater
+      ? MOCK_SENTENCES[language] || MOCK_SENTENCES.en
+      : signs.join(" ").toLowerCase().replace(/^./, (c) => c.toUpperCase()) +
+        ".";
+    return { sentence, mock: true };
   }
 
   const data = await postJson("/api/translate", { signs, language }, 20000);

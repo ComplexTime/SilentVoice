@@ -621,3 +621,47 @@
   gap: 10px;
   margin-top: 6px;
 }
+/* ---------- Mode selector ---------- */
+.mode-select {
+  display: inline-flex;
+  padding: 4px;
+  gap: 4px;
+  margin-bottom: 14px;
+  background: #060b16;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+}
+.mode-btn {
+  min-height: 40px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 700;
+  cursor: pointer;
+}
+.mode-btn.active {
+  background: var(--primary);
+  color: var(--bg);
+}
+.mode-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---------- Letter buffer ---------- */
+.letter-word {
+  font-size: 1.8rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--primary);
+  margin-bottom: 12px;
+  word-break: break-all;
+}
+.builder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
