@@ -23,6 +23,7 @@ How to read the dataset report:
 """
 
 import argparse
+import time
 from collections import Counter
 
 import numpy as np
@@ -98,6 +99,11 @@ def run_live():
 
     extra_flip = False
     summary = Counter()
+    detection = Counter()     # how many hands MediaPipe found per frame
+    labels_seen = Counter()   # label combinations, e.g. "Left+Right"
+    rejected = 0
+    frames_total = 0
+    started = time.monotonic()
     with CameraManager() as camera, HandTracker() as tracker:
         aspect = camera.width / camera.height
         print("Show ONE hand. M: toggle extra mirroring | Q/ESC: quit")
@@ -110,6 +116,12 @@ def run_live():
                 frame = cv2.flip(frame, 1)
             hands = tracker.process_frame(frame)
             sample = frame_to_alphabet_sample(extract_features(hands), aspect_ratio=aspect)
+            frames_total += 1
+            detection[min(len(hands), 2)] += 1
+            if hands:
+                labels_seen["+".join(sorted(h["handedness"] for h in hands))] += 1
+            if sample is None:
+                rejected += 1
             tracker.draw_landmarks(frame, hands)
 
             lines = [
@@ -134,6 +146,14 @@ def run_live():
                 extra_flip = not extra_flip
         mirror = camera.mirror
     cv2.destroyAllWindows()
+
+    elapsed = max(time.monotonic() - started, 1e-6)
+    print(f"\n=== Hand detection ({frames_total} frames, {frames_total / elapsed:.1f} FPS) ===")
+    for count, name in ((0, "no hand"), (1, "one hand"), (2, "two hands")):
+        share = 100.0 * detection[count] / max(frames_total, 1)
+        print(f"  {name:10s} {detection[count]:6d}  ({share:4.1f}%)")
+    print(f"  labels: {dict(labels_seen.most_common())}")
+    print(f"  rejected for alphabet (no hand / two hands / invalid): {rejected}")
 
     print(f"\n=== Live summary (camera mirror={mirror}) ===")
     print("extra_flip  label   canonical_sign  frames")
