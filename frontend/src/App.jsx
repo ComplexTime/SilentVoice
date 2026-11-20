@@ -1,12 +1,13 @@
 // src/App.jsx
 import { useCallback, useRef, useState } from "react";
 import "./App.css";
-import { FRAME_COUNT, USE_MOCK } from "./config";
+import { FRAME_COUNT, LANGUAGES, USE_MOCK } from "./config";
 import Camera from "./components/Camera";
 import SignDisplay from "./components/SignDisplay";
 import SentenceBuilder from "./components/SentenceBuilder";
+import Translator from "./components/Translator";
 import { captureFrames } from "./captureFrames";
-import { predictSign } from "./api";
+import { predictSign, translateSigns } from "./api";
 
 function Logo() {
   return (
@@ -22,6 +23,7 @@ function App() {
   const cameraRef = useRef(null);
   const busyRef = useRef(false); // blocks overlapping record/predict runs
   const nextId = useRef(1);
+  const translateRequestRef = useRef(0); // lets us ignore outdated translations
 
   const [cameraStatus, setCameraStatus] = useState("off");
   const [recording, setRecording] = useState(false);
@@ -29,8 +31,21 @@ function App() {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
 
-  const [prediction, setPrediction] = useState(null); // waiting for user's decision
-  const [signs, setSigns] = useState([]); // the sentence: [{ id, sign, confidence, mock }]
+  const [prediction, setPrediction] = useState(null);
+  const [signs, setSigns] = useState([]);
+
+  const [language, setLanguage] = useState(LANGUAGES[0].code);
+  const [sentenceResult, setSentenceResult] = useState(null);
+  const [translating, setTranslating] = useState(false);
+  const [translateError, setTranslateError] = useState("");
+
+  // Clears the sentence and cancels any translation still in flight
+  const invalidateSentence = useCallback(() => {
+    translateRequestRef.current += 1;
+    setSentenceResult(null);
+    setTranslateError("");
+    setTranslating(false);
+  }, []);
 
   const handleRecord = useCallback(async () => {
     if (busyRef.current) return;
@@ -72,20 +87,57 @@ function App() {
     ]);
     setPrediction(null);
     setProgress(0);
-  }, [prediction]);
+    invalidateSentence();
+  }, [prediction, invalidateSentence]);
 
   const handleDiscard = useCallback(() => {
     setPrediction(null);
     setProgress(0);
   }, []);
 
-  const handleRemove = useCallback((id) => {
-    setSigns((prev) => prev.filter((s) => s.id !== id));
-  }, []);
+  const handleRemove = useCallback(
+    (id) => {
+      setSigns((prev) => prev.filter((s) => s.id !== id));
+      invalidateSentence();
+    },
+    [invalidateSentence]
+  );
 
   const handleClear = useCallback(() => {
     setSigns([]);
-  }, []);
+    invalidateSentence();
+  }, [invalidateSentence]);
+
+  const handleLanguageChange = useCallback(
+    (code) => {
+      setLanguage(code);
+      invalidateSentence();
+    },
+    [invalidateSentence]
+  );
+
+  const handleTranslate = useCallback(async () => {
+    if (translating || signs.length === 0) return;
+
+    const requestId = ++translateRequestRef.current;
+    setTranslating(true);
+    setTranslateError("");
+    setSentenceResult(null);
+
+    try {
+      const result = await translateSigns(
+        signs.map((s) => s.sign),
+        language
+      );
+      if (requestId !== translateRequestRef.current) return; // outdated
+      setSentenceResult({ ...result, language });
+    } catch (err) {
+      if (requestId !== translateRequestRef.current) return;
+      setTranslateError(err.message || "Translation failed.");
+    } finally {
+      if (requestId === translateRequestRef.current) setTranslating(false);
+    }
+  }, [translating, signs, language]);
 
   const cameraOn = cameraStatus === "on";
   const busy = recording || predicting;
@@ -199,7 +251,16 @@ function App() {
               <span className="step ai" aria-hidden="true">3</span>
               AI sentence
             </h2>
-            <div className="placeholder">Translation and Speak button go here</div>
+
+            <Translator
+              signs={signs}
+              language={language}
+              onLanguageChange={handleLanguageChange}
+              result={sentenceResult}
+              loading={translating}
+              error={translateError}
+              onTranslate={handleTranslate}
+            />
           </section>
         </div>
       </main>

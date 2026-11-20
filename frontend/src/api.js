@@ -74,7 +74,7 @@ export async function predictSign(frames) {
 
   if (USE_MOCK) {
     await sleep(700);
-    return { sign: "WATER", confidence: 0.94, mock: true };
+   return { sign: "WATER", confidence: 0.94, mock: true };
   }
 
   const data = await postJson("/api/predict", { frames });
