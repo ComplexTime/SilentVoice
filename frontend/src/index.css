@@ -1,0 +1,79 @@
+/* src/index.css - global theme */
+:root {
+  --bg: #0b1120;
+  --card: #111c2e;
+  --card-border: #1e2d45;
+  --primary: #2dd4bf;
+  --ai: #a78bfa;
+  --text: #f8fafc;
+  --muted: #94a3b8;
+  --danger: #f87171;
+  --warning: #fbbf24;
+  --success: #4ade80;
+  --radius: 16px;
+
+  color-scheme: dark;
+  font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(900px 500px at 10% -10%, rgba(45, 212, 191, 0.12), transparent),
+    radial-gradient(900px 500px at 100% 0%, rgba(167, 139, 250, 0.12), transparent),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+button,
+select {
+  font: inherit;
+}
+
+/* Visible keyboard focus everywhere */
+:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 3px;
+}
+
+/* Visually hidden but readable by screen readers */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
