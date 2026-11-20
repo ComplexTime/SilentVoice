@@ -2,10 +2,11 @@
 import { API_BASE_URL, FRAME_COUNT, LANGUAGES, USE_MOCK } from "./config";
 
 export class ApiError extends Error {
-  constructor(message, kind = "unknown") {
+  constructor(message, kind = "unknown", status = null) {
     super(message);
     this.name = "ApiError";
-    this.kind = kind; // "network" | "timeout" | "http" | "invalid" | "input"
+    this.kind = kind; // "network" | "timeout" | "http" | "invalid" | "input" | "unavailable"
+    this.status = status;
   }
 }
 
@@ -48,7 +49,11 @@ async function postJson(path, body, timeoutMs = 15000) {
     if (!response.ok) {
       const detail =
         data && typeof data.detail === "string" ? " " + data.detail : "";
-      throw new ApiError(`Backend error (${response.status}).${detail}`, "http");
+      throw new ApiError(
+        `Backend error (${response.status}).${detail}`,
+        "http",
+        response.status
+      );
     }
     if (data === null) {
       throw new ApiError("The backend returned an invalid response.", "invalid");
@@ -80,7 +85,22 @@ async function requestPrediction(path, frames, mockResult) {
     return mockResult();
   }
 
-  const data = await postJson(path, { frames });
+  let data;
+  try {
+    data = await postJson(path, { frames });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      throw new ApiError(
+        path.includes("alphabet")
+          ? "Alphabet recognition is not available yet because the model is still being prepared. Switch to Word mode for now."
+          : "The recognition service is temporarily unavailable. Please try again.",
+        "unavailable",
+        503
+      );
+    }
+    throw err;
+  }
+
   const okSign = typeof data.sign === "string" && data.sign.trim() !== "";
   const okConf =
     typeof data.confidence === "number" &&
@@ -135,10 +155,12 @@ export async function translateSigns(signs, language) {
 
   if (USE_MOCK) {
     await sleep(800);
-    return {
-      sentence: MOCK_SENTENCES[language] || MOCK_SENTENCES.en,
-      mock: true,
-    };
+    const onlyWater = signs.length === 1 && signs[0].toUpperCase() === "WATER";
+    const sentence = onlyWater
+      ? MOCK_SENTENCES[language] || MOCK_SENTENCES.en
+      : signs.join(" ").toLowerCase().replace(/^./, (c) => c.toUpperCase()) +
+        ".";
+    return { sentence, mock: true };
   }
 
   const data = await postJson("/api/translate", { signs, language }, 20000);
