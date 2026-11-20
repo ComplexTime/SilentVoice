@@ -97,12 +97,14 @@ def run_live():
     from ml.features import extract_features
 
     extra_flip = False
+    summary = Counter()
     with CameraManager() as camera, HandTracker() as tracker:
         aspect = camera.width / camera.height
-        print("M: toggle extra mirroring | Q/ESC: quit")
+        print("Show ONE hand. M: toggle extra mirroring | Q/ESC: quit")
         while True:
             ok, frame = camera.read()
             if not ok:
+                print("Failed to read a camera frame.")
                 break
             if extra_flip:
                 frame = cv2.flip(frame, 1)
@@ -117,7 +119,9 @@ def run_live():
             if sample is None:
                 lines.append("alphabet sample: rejected")
             else:
-                lines.append(f"canonical palm sign: {_canonical_sign(sample):+d}")
+                sign = _canonical_sign(sample)
+                lines.append(f"canonical palm sign: {sign:+d}")
+                summary[(extra_flip, hands[0]["handedness"], sign)] += 1
             for row, text in enumerate(lines):
                 cv2.putText(frame, text, (10, 30 + 28 * row),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
@@ -128,7 +132,15 @@ def run_live():
                 break
             if key in (ord("m"), ord("M")):
                 extra_flip = not extra_flip
+        mirror = camera.mirror
     cv2.destroyAllWindows()
+
+    print(f"\n=== Live summary (camera mirror={mirror}) ===")
+    print("extra_flip  label   canonical_sign  frames")
+    for (flip, label, sign), count in sorted(summary.items()):
+        print(f"{str(flip):10s}  {label:6s}  {sign:+d}              {count}")
+    if not summary:
+        print("No valid single-hand frames were seen.")
 
 
 def main():
