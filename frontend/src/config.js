@@ -20,4 +20,5 @@ export const MIN_CONFIDENCE = 0.8;
 export const LANGUAGES = [
   { code: "en", label: "English", speechLang: "en-US" },
   { code: "he", label: "עברית (Hebrew)", speechLang: "he-IL" },
+  { code: "ru", label: "Русский (Russian)", speechLang: "ru-RU" },
 ];
