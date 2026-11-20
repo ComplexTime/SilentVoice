@@ -1,4 +1,5 @@
 // src/App.jsx
+import AlphabetGuide from "./components/AlphabetGuide";
 import { useCallback, useRef, useState } from "react";
 import "./App.css";
 import {
@@ -293,6 +294,8 @@ const handleAdd = useCallback(() => {
                 {error}
               </p>
             )}
+
+            {mode === "alphabet" && <AlphabetGuide />}
           </section>
         </div>
 
