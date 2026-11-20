@@ -22,3 +22,6 @@ export const LANGUAGES = [
   { code: "he", label: "עברית (Hebrew)", speechLang: "he-IL" },
   { code: "ru", label: "Русский (Russian)", speechLang: "ru-RU" },
 ];
+// Alphabet mode: the backend already returns UNKNOWN for rejected letters.
+// 0 = rely only on the backend. Agree any extra threshold with the ML developer.
+export const ALPHABET_MIN_CONFIDENCE = 0;

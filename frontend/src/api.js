@@ -59,9 +59,7 @@ async function postJson(path, body, timeoutMs = 15000) {
   }
 }
 
-// POST /api/predict
-// Returns { sign, confidence, mock }
-export async function predictSign(frames) {
+function checkFrames(frames) {
   if (!Array.isArray(frames) || frames.length !== FRAME_COUNT) {
     throw new ApiError(`Expected exactly ${FRAME_COUNT} frames.`, "input");
   }
@@ -71,13 +69,18 @@ export async function predictSign(frames) {
       "input"
     );
   }
+}
+
+// Shared by word and alphabet prediction (same request, same response shape)
+async function requestPrediction(path, frames, mockResult) {
+  checkFrames(frames);
 
   if (USE_MOCK) {
     await sleep(700);
-   return { sign: "WATER", confidence: 0.94, mock: true };
+    return mockResult();
   }
 
-  const data = await postJson("/api/predict", { frames });
+  const data = await postJson(path, { frames });
   const okSign = typeof data.sign === "string" && data.sign.trim() !== "";
   const okConf =
     typeof data.confidence === "number" &&
@@ -93,8 +96,35 @@ export async function predictSign(frames) {
   return { sign: data.sign.trim(), confidence: data.confidence, mock: false };
 }
 
+// POST /api/predict  (word mode)
+export function predictSign(frames) {
+  return requestPrediction("/api/predict", frames, () => ({
+    sign: "WATER",
+    confidence: 0.94,
+    mock: true,
+  }));
+}
+
+// POST /api/predict/alphabet  (alphabet mode)
+const MOCK_LETTERS = ["H", "E", "L", "L", "O"];
+let mockLetterIndex = 0;
+
+export function predictLetter(frames) {
+  return requestPrediction("/api/predict/alphabet", frames, () => {
+    const sign = MOCK_LETTERS[mockLetterIndex % MOCK_LETTERS.length];
+    mockLetterIndex += 1;
+    return { sign, confidence: 0.91, mock: true };
+  });
+}
+
 // POST /api/translate
 // Returns { sentence, mock }
+const MOCK_SENTENCES = {
+  en: "I would like some water.",
+  he: "אני רוצה קצת מים.",
+  ru: "Я хотел бы немного воды.",
+};
+
 export async function translateSigns(signs, language) {
   if (!Array.isArray(signs) || signs.length === 0) {
     throw new ApiError("Add at least one sign before translating.", "input");
@@ -105,7 +135,10 @@ export async function translateSigns(signs, language) {
 
   if (USE_MOCK) {
     await sleep(800);
-    return { sentence: "I would like some water.", mock: true };
+    return {
+      sentence: MOCK_SENTENCES[language] || MOCK_SENTENCES.en,
+      mock: true,
+    };
   }
 
   const data = await postJson("/api/translate", { signs, language }, 20000);

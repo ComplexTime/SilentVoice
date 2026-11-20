@@ -1,13 +1,21 @@
 // src/App.jsx
 import { useCallback, useRef, useState } from "react";
 import "./App.css";
-import { FRAME_COUNT, LANGUAGES, USE_MOCK } from "./config";
+import {
+  ALPHABET_MIN_CONFIDENCE,
+  FRAME_COUNT,
+  LANGUAGES,
+  MIN_CONFIDENCE,
+  USE_MOCK,
+} from "./config";
 import Camera from "./components/Camera";
 import SignDisplay from "./components/SignDisplay";
 import SentenceBuilder from "./components/SentenceBuilder";
 import Translator from "./components/Translator";
+import ModeSelector from "./components/ModeSelector";
+import LetterBuffer from "./components/LetterBuffer";
 import { captureFrames } from "./captureFrames";
-import { predictSign, translateSigns } from "./api";
+import { predictLetter, predictSign, translateSigns } from "./api";
 
 function Logo() {
   return (
@@ -33,6 +41,8 @@ function App() {
 
   const [prediction, setPrediction] = useState(null);
   const [signs, setSigns] = useState([]);
+  const [mode, setMode] = useState("word"); // "word" | "alphabet"
+  const [letters, setLetters] = useState([]); // [{ id, ch, mock }]
 
   const [language, setLanguage] = useState(LANGUAGES[0].code);
   const [sentenceResult, setSentenceResult] = useState(null);
@@ -62,7 +72,8 @@ function App() {
       setRecording(false);
 
       setPredicting(true);
-      const result = await predictSign(frames);
+      const predict = mode === "alphabet" ? predictLetter : predictSign;
+      const result = await predict(frames);
       setPrediction(result);
     } catch (err) {
       setError(err.message || "Something went wrong.");
@@ -71,11 +82,22 @@ function App() {
       setPredicting(false);
       busyRef.current = false;
     }
-  }, []);
+  }, [mode]);
 
-  const handleAdd = useCallback(() => {
+const handleAdd = useCallback(() => {
     if (!prediction || prediction.sign.toUpperCase() === "UNKNOWN") return;
     const id = nextId.current++;
+
+    if (mode === "alphabet") {
+      setLetters((prev) => [
+        ...prev,
+        { id, ch: prediction.sign.toUpperCase(), mock: prediction.mock },
+      ]);
+      setPrediction(null);
+      setProgress(0);
+      return;
+    }
+
     setSigns((prev) => [
       ...prev,
       {
@@ -88,7 +110,53 @@ function App() {
     setPrediction(null);
     setProgress(0);
     invalidateSentence();
-  }, [prediction, invalidateSentence]);
+  }, [prediction, mode, invalidateSentence]);
+
+  const handleModeChange = useCallback((next) => {
+    if (busyRef.current) return; // never switch while recording/predicting
+    setMode(next);
+    setPrediction(null); // clear stale prediction
+    setProgress(0);
+    setError("");
+  }, []);
+
+  const handleBackspace = useCallback(() => {
+    setLetters((prev) => prev.slice(0, -1));
+  }, []);
+
+  const handleSpace = useCallback(() => {
+    setLetters((prev) => {
+      if (prev.length === 0 || prev[prev.length - 1].ch === " ") return prev;
+      return [...prev, { id: nextId.current++, ch: " ", mock: false }];
+    });
+  }, []);
+
+  const handleRemoveLetter = useCallback((id) => {
+    setLetters((prev) => prev.filter((l) => l.id !== id));
+  }, []);
+
+  const handleClearLetters = useCallback(() => {
+    setLetters([]);
+  }, []);
+
+  const handleAddWord = useCallback(() => {
+    const words = letters
+      .map((l) => l.ch)
+      .join("")
+      .split(/\s+/)
+      .filter(Boolean);
+    if (words.length === 0) return;
+    const anyMock = letters.some((l) => l.mock);
+    const entries = words.map((w) => ({
+      id: nextId.current++,
+      sign: w,
+      confidence: null,
+      mock: anyMock,
+    }));
+    setSigns((prev) => [...prev, ...entries]);
+    setLetters([]);
+    invalidateSentence();
+  }, [letters, invalidateSentence]);
 
   const handleDiscard = useCallback(() => {
     setPrediction(null);
@@ -142,7 +210,7 @@ function App() {
   const cameraOn = cameraStatus === "on";
   const busy = recording || predicting;
 
-  let buttonText = "Record Sign";
+  let buttonText = mode === "alphabet" ? "Record Letter" : "Record Sign";
   if (recording) buttonText = "Recording...";
   if (predicting) buttonText = "Recognizing...";
 
@@ -184,7 +252,11 @@ function App() {
               <span className="step" aria-hidden="true">1</span>
               Camera
             </h2>
-
+<ModeSelector
+              value={mode}
+              onChange={handleModeChange}
+              disabled={busy}
+            />
             <Camera ref={cameraRef} onStatusChange={setCameraStatus} />
 
             <div className="record-area">
@@ -231,12 +303,29 @@ function App() {
               Recognized signs
             </h2>
 
-            <SignDisplay
+   <SignDisplay
               prediction={prediction}
               loading={predicting}
               onAdd={handleAdd}
               onDiscard={handleDiscard}
+              minConfidence={
+                mode === "alphabet" ? ALPHABET_MIN_CONFIDENCE : MIN_CONFIDENCE
+              }
+              label={mode === "alphabet" ? "Recognized letter" : "Recognized sign"}
+              addLabel={mode === "alphabet" ? "Add letter" : "Add to sentence"}
             />
+
+            {mode === "alphabet" && (
+              <LetterBuffer
+                letters={letters}
+                onBackspace={handleBackspace}
+                onSpace={handleSpace}
+                onClear={handleClearLetters}
+                onRemove={handleRemoveLetter}
+                onAddWord={handleAddWord}
+                disabled={busy}
+              />
+            )}
 
             <SentenceBuilder
               signs={signs}

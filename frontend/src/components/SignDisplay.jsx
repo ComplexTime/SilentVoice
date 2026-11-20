@@ -1,7 +1,15 @@
 // src/components/SignDisplay.jsx
 import { MIN_CONFIDENCE } from "../config";
 
-export default function SignDisplay({ prediction, loading, onAdd, onDiscard }) {
+export default function SignDisplay({
+  prediction,
+  loading,
+  onAdd,
+  onDiscard,
+  minConfidence = MIN_CONFIDENCE,
+  label = "Recognized sign",
+  addLabel = "Add to sentence",
+}) {
   if (loading) {
     return (
       <div className="sign-empty" role="status">
@@ -14,14 +22,14 @@ export default function SignDisplay({ prediction, loading, onAdd, onDiscard }) {
   if (!prediction) {
     return (
       <div className="placeholder">
-        Record a sign and the result will appear here.
+        Record and the result will appear here.
       </div>
     );
   }
 
   const percent = Math.round(prediction.confidence * 100);
   const isUnknown = prediction.sign.toUpperCase() === "UNKNOWN";
-  const isLow = prediction.confidence < MIN_CONFIDENCE;
+  const isLow = prediction.confidence < minConfidence;
   const level = isUnknown || isLow ? "low" : "high";
 
   return (
@@ -30,7 +38,7 @@ export default function SignDisplay({ prediction, loading, onAdd, onDiscard }) {
         <p className="mock-tag">MOCK RESULT: demo data, not real recognition</p>
       )}
 
-      <p className="sign-label">Recognized sign</p>
+      <p className="sign-label">{label}</p>
       <p className="sign-word" aria-live="polite">
         {prediction.sign}
       </p>
@@ -57,13 +65,13 @@ export default function SignDisplay({ prediction, loading, onAdd, onDiscard }) {
 
       {isUnknown && (
         <p className="alert alert-error" role="alert">
-          The sign was not recognized. Please record it again.
+          Not recognized. Please record again.
         </p>
       )}
       {!isUnknown && isLow && (
         <p className="alert alert-warning" role="alert">
-          Low confidence (below {Math.round(MIN_CONFIDENCE * 100)}%). Check that
-          this is the sign you meant.
+          Low confidence (below {Math.round(minConfidence * 100)}%). Check that
+          this is what you meant.
         </p>
       )}
 
@@ -74,7 +82,7 @@ export default function SignDisplay({ prediction, loading, onAdd, onDiscard }) {
             className={"btn " + (isLow ? "btn-ghost" : "btn-primary")}
             onClick={onAdd}
           >
-            {isLow ? "Add anyway" : "Add to sentence"}
+            {isLow ? "Add anyway" : addLabel}
           </button>
         )}
         <button type="button" className="btn btn-ghost" onClick={onDiscard}>
