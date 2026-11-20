@@ -23,7 +23,7 @@ from backend.schemas import (
 )
 
 from backend.pipeline import run_prediction
-
+from backend.alphabet_pipeline import run_alphabet_prediction
 
 app = FastAPI(
     title=PROJECT_NAME,
@@ -106,4 +106,32 @@ def translate(request: TranslateRequest):
         raise HTTPException(
             status_code=503,
             detail=str(error)
+        )
+
+
+@app.post(
+    "/api/predict/alphabet",
+    response_model=PredictResponse
+)
+def predict_alphabet(request: PredictRequest):
+
+    try:
+        return run_alphabet_prediction(request.frames)
+
+    except ValueError as error:
+        raise HTTPException(
+            status_code=400,
+            detail=str(error)
+        )
+
+    except (
+        ImportError,
+        FileNotFoundError,
+        NotImplementedError
+    ) as error:
+        print(f"Alphabet pipeline unavailable: {error}")
+
+        raise HTTPException(
+            status_code=503,
+            detail="Alphabet recognition is currently unavailable"
         )
