@@ -14,7 +14,7 @@ export const CAPTURE_HEIGHT = 480;
 export const JPEG_QUALITY = 0.8;
 
 // A prediction below this confidence needs no auto-add (user confirms)
-export const MIN_CONFIDENCE = 0.8;
+export const MIN_CONFIDENCE = 0.35;
 
 // Output languages offered in the UI (sent to POST /api/translate)
 export const LANGUAGES = [

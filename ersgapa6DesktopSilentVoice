@@ -1,9 +1,0 @@
-[33m735afc2[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Merge pull request #2 from ComplexTime/feature/vision
-[33m9b552e7[m Merge pull request #1 from ComplexTime/feature/backend
-[33me924a1b[m[33m ([m[1;31morigin/feature/vision[m[33m)[m Require one left and one right hand for two-hand signs
-[33mbba9d8a[m[33m ([m[1;31morigin/feature/backend[m[33m)[m Complete backend, Groq LLM and real prediction pipeline
-[33m3a3eee0[m Replace openai with Groq GPT-OSS 120B integration
-[33m3297fc6[m Add resizable display window, fix handedness labels, load model from non-ASCII paths, pin requirements
-[33m8c29dfc[m Improve vision module: central config, mirror view, hand tracking fixes, preprocessing normalization, data collection with continuous recording
-[33mcc1c3b7[m Add Computer Vision implementation
-[33maf5decf[m got fast api running
