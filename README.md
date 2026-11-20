@@ -1,300 +1,98 @@
 # SilentVoice
 
-### Give every movement a voice.
+**Give every movement a voice.**
 
-SilentVoice is an AI-powered accessibility application that recognizes American Sign Language (ASL) gestures through a webcam, converts them into natural-language sentences, and reads them aloud.
+SilentVoice is an AI-powered accessibility prototype developed by a four-person team during a 12-hour hackathon. It recognizes isolated American Sign Language (ASL) signs and fingerspelled letters through a webcam, turns confirmed words into natural-language sentences using a large language model, and reads the results aloud.
 
-Developed during a 12-hour hackathon, SilentVoice combines computer vision, machine learning and large language models to help bridge communication barriers.
-
-![Python](https://img.shields.io/badge/Python-3.12-blue)
-![React](https://img.shields.io/badge/React-Frontend-61DAFB)
-![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688)
-![MediaPipe](https://img.shields.io/badge/MediaPipe-Computer_Vision-orange)
-![Machine Learning](https://img.shields.io/badge/ML-Random_Forest-green)
-![Groq](https://img.shields.io/badge/LLM-Groq-red)
-
----
+![Python](https://img.shields.io/badge/Python-3.12-blue) ![React](https://img.shields.io/badge/React-Vite-61DAFB) ![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688) ![MediaPipe](https://img.shields.io/badge/MediaPipe-Vision-orange) ![ML](https://img.shields.io/badge/ML-Random%20Forest-green) ![Groq](https://img.shields.io/badge/LLM-Groq-red)
 
 ## Features
 
-- Live webcam capture.
-- American Sign Language recognition.
-- Real-time hand landmark detection using MediaPipe.
-- Gesture classification using a trained Random Forest model.
-- Prediction confidence meter.
-- Unknown gesture rejection.
-- Manual confirmation of recognized signs.
-- Editable word history.
-- AI-powered natural sentence generation.
-- Multilingual translation.
-- Text-to-speech.
-- Responsive React interface.
-- Mock and live prediction modes.
+| Feature | Support |
+| --- | --- |
+| Word recognition | YES, NO, MORE, STOP, FINISH |
+| Alphabet recognition | 24 static ASL letters (A–Z excluding J and Z) |
+| Gesture rejection | UNKNOWN when the model rejects a prediction |
+| Fingerspelling | Letter confirmation, editable buffer, repeated letters, space and backspace |
+| Sentence construction | Confirm signs or completed words before sending them to the LLM |
+| Translation | English, Hebrew and Russian |
+| Speech | English and Russian verified; Hebrew depends on browser voice availability |
+| Learning guide | ASL alphabet reference in Alphabet mode |
 
-## Supported Signs
+J and Z require motion and are not supported by the current alphabet classifier. SilentVoice is a limited-vocabulary research prototype, not a complete ASL translator or a replacement for a qualified interpreter.
 
-| Sign | Meaning |
-|---|---|
-| YES | Agreement or confirmation |
-| NO | Disagreement or rejection |
-| MORE | Request for more |
-| STOP | Request to stop |
-| FINISH | Completion of an action |
-| UNKNOWN | Unrecognized gesture |
-
-SilentVoice currently supports a limited vocabulary as a proof of concept.
-
-## Supported Languages
-
-| Language | Translation | Text-to-Speech |
-|---|---|---|
-| English | Supported | Supported |
-| Hebrew | Supported | Requires a compatible browser voice |
-| Russian | Supported | Supported |
-
-## How It Works
-
-1. The user performs an ASL gesture in front of a webcam.
-2. The frontend captures 15 frames at approximately 100 ms intervals.
-3. The frames are encoded as Base64 JPEG images.
-4. The frontend sends the frames to the FastAPI backend.
-5. MediaPipe extracts hand landmarks.
-6. The landmarks are converted into a normalized feature sequence.
-7. The trained Random Forest model predicts the corresponding sign.
-8. The user confirms the prediction and adds it to the word history.
-9. Groq's large language model transforms the recognized signs into a natural sentence.
-10. The browser reads the generated sentence aloud.
-
-## System Architecture
+## Architecture
 
 ```mermaid
 flowchart TD
-    A[Webcam] --> B[React Frontend]
-    B --> C[Capture 15 Frames]
-    C --> D[FastAPI Backend]
-    D --> E[MediaPipe Hand Tracking]
-    E --> F[Feature Extraction]
-    F --> G[Normalization]
-    G --> H[Random Forest Classifier]
-    H --> I[Sign and Confidence]
-    I --> J[User Confirmation]
-    J --> K[Word History]
-    K --> L[Groq LLM]
-    L --> M[Multilingual Sentence]
-    M --> N[Text-to-Speech]
+    A[React webcam: 15 JPEG frames] --> B[FastAPI: decode frames]
+    B --> C[MediaPipe hand tracking]
+    C --> D[Raw 15 x 128 feature sequence]
+    D --> E[Word normalization: 1920 features]
+    D --> F[Alphabet normalization: 63 features per valid frame]
+    E --> G[Word Random Forest]
+    F --> H[Alphabet Random Forest and frame aggregation]
+    G --> I[Sign and confidence]
+    H --> I
+    I --> J[User confirmation and word history]
+    J --> K[Groq GPT-OSS 120B]
+    K --> L[English, Hebrew or Russian text]
+    L --> M[Browser text-to-speech]
 ```
 
-## Technology Stack
+The frontend captures 15 frames at approximately 100 ms intervals, at 640 × 480 resolution. Only the preview is mirrored; the captured images are not. The raw feature vector contains 63 coordinates for each hand and two hand-presence flags. Word and alphabet models are independent and use different normalization pipelines.
 
-| Category | Technology |
-|---|---|
-| Frontend | React, Vite, JavaScript |
-| Backend | Python, FastAPI, Uvicorn |
-| Computer Vision | MediaPipe, OpenCV |
-| Machine Learning | Scikit-learn, Random Forest |
-| Numerical Computing | NumPy |
-| Model Serialization | Joblib |
-| Large Language Model | GPT-OSS 120B via Groq |
-| Speech Synthesis | Web Speech API |
-| Version Control | Git and GitHub |
-
-## Machine Learning Model
-
-The recognition model uses a Random Forest classifier trained on hand landmark sequences extracted from ASL video recordings.
-
-### Model Parameters
-
-| Parameter | Value |
-|---|---|
-| Classifier | Random Forest |
-| Number of trees | 100 |
-| Frames per prediction | 15 |
-| Features per frame | 128 |
-| Total features per prediction | 1,920 |
-| Supported signs | 5 |
-| Unknown gesture class | Yes |
-| Confidence threshold | 0.35 |
-
-### Feature Extraction
-
-Each frame contains:
-
-- 63 coordinates representing the left hand.
-- 63 coordinates representing the right hand.
-- 2 hand-presence indicators.
-
-Each hand contains 21 landmarks with X, Y and Z coordinates.
-
-The extracted landmarks are normalized to reduce sensitivity to hand position and scale while preserving movement information.
-
-### Training Dataset
-
-The training and development data were prepared using:
-
-- WLASL — Word-Level American Sign Language dataset.
-- ASL Citizen dataset.
-
-The training pipeline includes:
-
-- Video frame sampling.
-- Hand landmark extraction.
-- Feature normalization.
-- Signer-aware training and development splitting.
-- Temporal augmentation.
-- Rotation augmentation.
-- Gaussian noise augmentation.
-
-Training and development recordings are separated by signer to reduce data leakage.
-
-### Development Evaluation Results
-
-| Metric | Result |
-|---|---:|
-| Original recordings | 230 |
-| Signer groups | 57 |
-| Original training samples | 178 |
-| Augmented training samples, including originals | 1,068 |
-| Development samples | 52 |
-| Classification accuracy | 78.85% |
-| Macro F1 score | 0.7490 |
-| Median ML inference latency | 6.05 ms |
-| 95th percentile ML inference latency | 7.67 ms |
-
-### Per-Class Performance
-
-| Sign | Precision | Recall | F1 Score |
-|---|---:|---:|---:|
-| YES | 67% | 67% | 67% |
-| NO | 83% | 71% | 77% |
-| MORE | 100% | 89% | 94% |
-| STOP | 100% | 40% | 57% |
-| FINISH | 80% | 67% | 73% |
-| UNKNOWN | 72% | 95% | 82% |
-
-These results were measured on recorded development data used during model tuning. They do not represent independent final test results or verified live recognition accuracy.
-
-Inference latency measures the ML classification stage, excluding webcam capture, landmark extraction, network communication and LLM processing.
-
-## Project Structure
-
-```text
-SilentVoice/
-├── backend/
-│   ├── main.py
-│   ├── config.py
-│   ├── schemas.py
-│   ├── pipeline.py
-│   ├── utils.py
-│   ├── llm.py
-│   └── llm_groq.py
-├── vision/
-│   ├── config.py
-│   ├── hand_tracking.py
-│   └── preprocessing.py
-├── ml/
-│   ├── config.py
-│   ├── dataset.py
-│   ├── features.py
-│   ├── normalize.py
-│   ├── augment.py
-│   ├── prepare_dataset.py
-│   ├── train.py
-│   ├── predict.py
-│   ├── evaluate.py
-│   └── models/
-├── frontend/
-│   ├── src/
-│   └── package.json
-├── data/
-├── .env.example
-├── .gitignore
-├── requirements.txt
-└── README.md
-```
-
-## Installation
+## 1. Installation (Windows PowerShell)
 
 ### Prerequisites
 
-- Python 3.12
-- Node.js and npm
-- Git
-- Webcam
-- Groq API key
-- Internet connection for AI sentence generation
-- Required ASL and MediaPipe model files
+- Python 3.12 (the team used Python 3.12.10)
+- Node.js and npm compatible with the frontend's Vite version
+- Git, webcam and a modern browser
+- Internet access for downloads and Groq translation
+- A Groq API key: <https://console.groq.com/keys>
 
-### 1. Clone the Repository
+All commands below start from the repository root unless otherwise stated.
+
+### Clone the project
 
 ```powershell
 git clone https://github.com/ComplexTime/SilentVoice.git
 cd SilentVoice
 ```
 
-### 2. Create a Python Virtual Environment
+If already cloned, save any local changes and run `git pull origin main` instead.
+
+### Install Python dependencies
 
 ```powershell
 py -3.12 -m venv .venv
-```
-
-Activate the environment:
-
-```powershell
 .\.venv\Scripts\Activate.ps1
-```
-
-### 3. Install Python Dependencies
-
-All Python dependencies are managed through the global requirements file.
-
-```powershell
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 python -m pip check
 ```
 
-### 4. Configure Environment Variables
+If the environment already exists, skip its creation. If activation is blocked by PowerShell policy, use `.\.venv\Scripts\python.exe` instead of `python` in the commands below, or use `Set-ExecutionPolicy -Scope Process Bypass` for the current trusted terminal session only.
 
-Create a local environment file if one does not already exist:
+The root `requirements.txt` is the single Python dependency list. Do not install both `opencv-python` and `opencv-contrib-python` into the same environment; the project uses the contrib distribution for `cv2`.
+
+### Configure Groq
 
 ```powershell
-Copy-Item .env.example .env
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
-Open `.env` and configure the following variables:
+Open the root `.env` file and configure:
 
 ```dotenv
 GROQ_API_KEY=your_groq_api_key
 GROQ_MODEL=openai/gpt-oss-120b
 ```
 
-API keys can be obtained from:
+Use your own API key. Never put it in the React frontend or commit `.env`.
 
-https://console.groq.com/keys
-
-Never commit the `.env` file or expose API keys in the frontend.
-
-### 5. Verify Model Files
-
-Verify that the trained ASL model is available:
-
-```powershell
-Test-Path ml/models/asl_model.joblib
-```
-
-Verify the MediaPipe model:
-
-```powershell
-python -c "from vision.config import HAND_LANDMARKER_MODEL; from pathlib import Path; print(Path(HAND_LANDMARKER_MODEL).exists())"
-```
-
-Both commands should return `True`.
-
-If a model is missing, obtain an authorized copy or generate it locally using the corresponding training or setup process.
-
-Training datasets and generated model files may not be included in the Git repository.
-
-### 6. Install Frontend Dependencies
+### Install frontend dependencies
 
 ```powershell
 cd frontend
@@ -302,250 +100,458 @@ npm install
 cd ..
 ```
 
-## Running the Application
+### Ensure the MediaPipe hand model is available
 
-SilentVoice requires two running terminals.
+The Vision configuration determines the actual model path. Check it before downloading anything:
+
+```powershell
+python -c "from pathlib import Path; from vision.config import HAND_LANDMARKER_MODEL; p=Path(HAND_LANDMARKER_MODEL); print(p); print('Exists:',p.exists())"
+```
+
+If it is missing, download the official Hand Landmarker bundle directly into the configured location:
+
+```powershell
+python -c "from pathlib import Path; from urllib.request import urlretrieve; from vision.config import HAND_LANDMARKER_MODEL; p=Path(HAND_LANDMARKER_MODEL); p.parent.mkdir(parents=True,exist_ok=True); urlretrieve('https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',str(p)); print(p)"
+```
+
+### Check the trained recognition models
+
+```powershell
+Test-Path ml/models/asl_model.joblib
+Test-Path ml/models/alphabet_model.joblib
+```
+
+If both commands return `True` and the files are from a trusted, compatible source, training is not necessary to run the application. Otherwise, follow the training sections below for the missing model. Model and dataset availability can differ between computers.
+
+## 2. Train the word recognition model
+
+This model recognizes the five supported word signs and UNKNOWN. Training downloads ASL video examples, extracts sequences of hand landmarks, normalizes them and fits a Random Forest classifier.
+
+### 2.1 Download the video datasets
+
+Review the [WLASL terms](https://github.com/dxli94/WLASL) and [ASL Citizen license](https://www.microsoft.com/en-us/research/project/asl-citizen/dataset-license/) before downloading or using the recordings. These are research datasets with restrictions; do not redistribute their contents or assume unrestricted rights to distribute derived artifacts.
+
+Run the following modules in this order:
+
+```powershell
+python -m ml.download_wlasl
+python -m ml.download_asl_citizen
+```
+
+The first script downloads a selected vocabulary from WLASL using its metadata and the Voxel51 Hugging Face dataset. The second adds selected ASL Citizen recordings to the existing manifest. Its official test partition is not downloaded by this script.
+
+Do not rerun the WLASL downloader after appending ASL Citizen unless you intentionally want to rebuild the manifest. It writes a new manifest.
+
+Expected data location:
+
+```text
+data/wlasl/
+    manifest.csv
+    citizen/
+    ... downloaded video files ...
+```
+
+Availability of remote videos may change; sample counts are not guaranteed to match previous training runs.
+
+### 2.2 Extract the word features
+
+```powershell
+python -m ml.prepare_dataset
+```
+
+This processes the video manifest, samples 15 frames per recording, extracts the raw features and saves:
+
+```text
+data/training.npz
+```
+
+The file contains `X` of shape `(N, 15, 128)`, labels `y`, and signer/session groups `groups`.
+
+### 2.3 Train and evaluate
+
+```powershell
+python -m ml.train
+python -m ml.evaluate
+```
+
+The model is saved to `ml/models/asl_model.joblib`. The evaluation produces classification metrics and `ml/models/confusion_matrix.png`.
+
+The training pipeline separates signer groups, normalizes landmarks and augments only the training partition. The model configuration lives in `ml/config.py`; the word confidence threshold is 0.35. The configured vocabulary may contain an untrained label (`I_LOVE_YOU`); only advertise classes present in the actual model.
+
+The following command is optional for inspecting the real dataset and checking its split:
+
+```powershell
+python -m ml.dataset --real
+```
+
+### Recorded development results (hackathon run)
+
+| Metric | Result |
+| --- | ---: |
+| Original recordings | 230 |
+| Signer groups | 57 |
+| Training recordings | 178 |
+| Training examples after augmentation | 1,068 |
+| Development recordings | 52 |
+| Accuracy | 78.85% |
+| Macro F1 | 0.7490 |
+| Median classifier inference latency | 6.05 ms |
+
+These are historical development results, not guarantees for a fresh training run. The same development split was used during tuning. The inference latency excludes camera capture, hand tracking, networking and LLM processing.
+
+## 3. Train the alphabet recognition model
+
+The alphabet classifier recognizes 24 static letters using 63 normalized features per valid single-hand frame. It averages the predicted class probabilities across valid frames and rejects low-confidence predictions. The word model is not modified by this process.
+
+### 3.1 Download the alphabet dataset
+
+Use version 1 of the [American Sign Language Alphabet Dataset](https://data.mendeley.com/datasets/jdyksv2jhh/1) by Elisa Cabana Garceran del Vall (2025), licensed CC BY 4.0. See the attribution section below.
+
+Download the ZIP from the dataset page and place it at `data/alphabet/dataset.zip`.
+
+To create the folder and extract a downloaded ZIP:
+
+```powershell
+New-Item -ItemType Directory -Force data/alphabet
+Expand-Archive -Path data/alphabet/dataset.zip -DestinationPath data/alphabet -Force
+```
+
+If the archive contains an extra parent folder, move its `Train` and `Test` folders into `data/alphabet/` so the final structure matches:
+
+```text
+data/alphabet/
+    Train/
+        A/ B/ C/ D/ E/ F/ G/ H/ I/ K/ L/ M/
+        N/ O/ P/ Q/ R/ S/ T/ U/ V/ W/ X/ Y/
+    Test/
+        A/ B/ C/ D/ E/ F/ G/ H/ I/ K/ L/ M/
+        N/ O/ P/ Q/ R/ S/ T/ U/ V/ W/ X/ Y/
+```
+
+Check the folders:
+
+```powershell
+tree data\alphabet /A
+```
+
+The `__MACOSX` metadata directory, if present, is not required. Keep the original Train and Test partitions separate.
+
+### 3.2 Prepare alphabet features
+
+First, run a small extraction test:
+
+```powershell
+python -m ml.alphabet_dataset --train-per-letter 5 --test-per-letter 2
+```
+
+If it succeeds, generate the full hackathon subset:
+
+```powershell
+python -m ml.alphabet_dataset --train-per-letter 150 --test-per-letter 40
+```
+
+The second command replaces the small extraction with the larger dataset at `data/alphabet_training.npz`. It processes raw images with MediaPipe, resizes with aspect-preserving padding and applies `vision/alphabet_features.py`. Detection failures can reduce the number of accepted examples.
+
+Verify the output:
+
+```powershell
+Test-Path data/alphabet_training.npz
+```
+
+The historical run yielded 3,600 training images and 683 test images across all 24 classes, each represented by 63 features.
+
+### 3.3 Set the alphabet confidence threshold
+
+Open `ml/alphabet_config.py` and use:
+
+```python
+CONFIDENCE_THRESHOLD = 0.35
+```
+
+Then train:
+
+```powershell
+python -m ml.alphabet_train
+```
+
+This fits the separate Random Forest classifier, prints a classification report and saves `ml/models/alphabet_model.joblib`. The training module also reports evaluation metrics; a separate alphabet evaluation module is not required.
+
+Verify the saved model:
+
+```powershell
+python -c "import joblib; a=joblib.load('ml/models/alphabet_model.joblib'); print('Threshold:',a['confidence_threshold']); print('Classes:',a['model'].classes_)"
+```
+
+Expected: threshold `0.35` and 24 classes (no J or Z). Only load Joblib artifacts that you created or received from a trusted source because they can execute code during deserialization.
+
+If an existing alphabet model contains the old threshold of 0.50, you can update its trusted local artifact without retraining:
+
+```powershell
+python -c "import joblib; p='ml/models/alphabet_model.joblib'; a=joblib.load(p); a['confidence_threshold']=0.35; joblib.dump(a,p,compress=3); print(a['confidence_threshold'])"
+```
+
+Keep the Python configuration consistent with the artifact, and restart the backend after changing the file because the predictor caches the model.
+
+### 3.4 Verify no-hand rejection
+
+```powershell
+python -c "import numpy as np; from ml.alphabet_predict import predict_letter; print(predict_letter(np.zeros((15,128),dtype=np.float32)))"
+```
+
+Expected:
+
+```text
+{'sign': 'UNKNOWN', 'confidence': 0.0}
+```
+
+### Recorded alphabet development results
+
+| Confidence threshold | Correct / all images | Rejected | Correct / accepted images |
+| ---: | ---: | ---: | ---: |
+| 0.35 | 73.79% | 15.67% | 87.50% |
+| 0.50 | 60.18% | 35.43% | 93.20% |
+
+The selected threshold prioritizes recognition coverage while allowing manual confirmation. These are image-level development results from the dataset's original Test folder, which was used for threshold selection. Signer independence was not verified. Unsupported-gesture rejection and live video accuracy require separate evaluation; the reported accuracy is not a live webcam benchmark.
+
+## 4. Run SilentVoice
+
+### Configuration
+
+In `backend/config.py`:
+
+```python
+MOCK_MODE = False
+```
+
+In `frontend/src/config.js`:
+
+```javascript
+export const USE_MOCK = false;
+export const API_BASE_URL = "http://localhost:8000";
+export const MIN_CONFIDENCE = 0.35;
+export const ALPHABET_MIN_CONFIDENCE = 0;
+```
+
+The alphabet threshold of zero in the frontend is intentional: the backend makes the alphabet rejection decision. The frontend must not accept UNKNOWN. Mock mode is for interface development, not a live recognition demonstration.
 
 ### Terminal 1 — Backend
 
-From the repository root:
+From the root directory:
 
 ```powershell
 .\.venv\Scripts\Activate.ps1
 python -m uvicorn backend.main:app --reload --port 8000
 ```
 
-Backend:
-
-http://localhost:8000
-
-Interactive API documentation:
-
-http://localhost:8000/docs
+- Health check: <http://localhost:8000/api/health>
+- Interactive API documentation: <http://localhost:8000/docs>
 
 ### Terminal 2 — Frontend
 
-From the repository root:
+From the root directory, in a separate terminal:
 
 ```powershell
 cd frontend
 npm run dev
 ```
 
-Open the application:
+Open **<http://localhost:5173>** and allow camera access. Keep both terminals open.
 
-http://localhost:5173
+### Using the application
 
-Both terminals must remain running while using SilentVoice.
+1. Start the webcam.
+2. Select Word mode or Alphabet mode.
+3. Perform a supported sign or hold a letter pose and press Record Sign/Record Letter.
+4. Review the result and confidence. Confirm the prediction or discard it and retry.
+5. In Alphabet mode, confirm letters one by one and add the completed word to the sentence history. The learning guide displays the ASL hand positions.
+6. Select English, Hebrew or Russian and press Translate.
+7. Press Speak to read the generated sentence aloud, if a compatible browser voice is installed.
 
-## Configuration
+## 5. API reference
 
-### Backend Configuration
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| GET | `/` | Project information |
+| GET | `/api/health` | Backend status and mock-mode configuration |
+| POST | `/api/predict` | Word recognition |
+| POST | `/api/predict/alphabet` | Alphabet recognition |
+| POST | `/api/translate` | Generate a natural-language sentence |
 
-File: `backend/config.py`
-
-```python
-MOCK_MODE = False
-```
-
-### Frontend Configuration
-
-File: `frontend/src/config.js`
-
-```javascript
-export const USE_MOCK = false;
-export const MIN_CONFIDENCE = 0.35;
-```
-
-The API base URL must point to:
-
-```text
-http://localhost:8000
-```
-
-Mock mode can be enabled for interface demonstrations without live gesture recognition. For actual recognition, both mock modes must be disabled.
-
-## API Reference
-
-### GET /api/health
-
-Checks whether the backend is running.
-
-Example response:
+Both prediction endpoints accept the same request object:
 
 ```json
-{
-    "status": "healthy",
-    "mock_mode": false,
-    "sign_language": "ASL"
-}
+{"frames": ["base64_jpeg_1", "...", "base64_jpeg_15"]}
 ```
 
-### POST /api/predict
+The array must contain exactly 15 actual Base64 JPEG strings, with no data URL prefix. The ellipsis above is illustrative and is not a valid frame.
 
-Recognizes an ASL gesture from 15 Base64-encoded JPEG frames.
-
-Request structure:
+Example word response:
 
 ```json
-{
-    "frames": [
-        "base64_jpeg_1",
-        "...",
-        "base64_jpeg_15"
-    ]
-}
+{"sign": "MORE", "confidence": 0.72}
 ```
 
-The actual request must contain exactly 15 valid images without the Base64 data URL prefix.
-
-Example response:
+Example alphabet response:
 
 ```json
-{
-    "sign": "MORE",
-    "confidence": 0.72
-}
+{"sign": "A", "confidence": 0.91}
 ```
 
-Confidence values range from 0 to 1.
-
-### POST /api/translate
-
-Transforms recognized signs into a natural-language sentence.
-
-Example request:
+Example rejection:
 
 ```json
-{
-    "signs": ["YES", "MORE"],
-    "language": "en"
-}
+{"sign": "UNKNOWN", "confidence": 0.0}
 ```
 
-Example response:
+The translation endpoint accepts between 1 and 50 words or confirmed signs:
 
 ```json
-{
-    "sentence": "Yes, I want more."
-}
+{"signs": ["YES", "MORE"], "language": "en"}
 ```
 
-Supported language codes:
+Example response (actual output varies):
 
-| Code | Language |
-|---|---|
-| en | English |
-| he | Hebrew |
-| ru | Russian |
+```json
+{"sentence": "Yes, I want more."}
+```
 
-Generated sentences may vary depending on the LLM response.
+Language codes are `en`, `he` and `ru`. Review generated sentences for accuracy; the LLM is not guaranteed to preserve every nuance.
 
-## Model Evaluation
+## 6. Tests and troubleshooting
 
-To evaluate the trained model using the local development dataset:
+### Backend smoke tests
+
+With the backend running:
 
 ```powershell
-.\.venv\Scripts\Activate.ps1
-python -m ml.evaluate
+Invoke-RestMethod -Uri 'http://localhost:8000/api/health'
+Invoke-RestMethod -Uri 'http://localhost:8000/api/translate' -Method Post -ContentType 'application/json' -Body (@{signs=@('HELLO','DANIEL');language='en'} | ConvertTo-Json)
 ```
 
-The evaluation requires the trained model and its corresponding processed dataset.
+### Vision tests
 
-The evaluation reports classification accuracy, precision, recall, F1 scores and inference latency.
+With the virtual environment active:
 
-## Troubleshooting
+```powershell
+python -m pip install pytest
+python -m pytest tests/test_alphabet_features.py -q
+```
 
-| Problem | Possible Solution |
-|---|---|
-| Backend cannot start | Activate the virtual environment and install dependencies |
-| Frontend cannot start | Run npm install inside frontend |
-| Failed to fetch | Verify that the backend is running on port 8000 |
-| CORS error | Verify that the backend permits the frontend origin |
-| HTTP 422 | Verify the request format and frame count |
-| HTTP 500 | Inspect the backend terminal traceback |
-| Missing model | Verify the required model files |
-| Camera unavailable | Check browser camera permissions |
-| Translation fails | Verify the Groq API key and internet connection |
-| All predictions rejected | Verify the confidence threshold and model configuration |
-| Hebrew speech unavailable | Use a compatible browser with an available Hebrew voice |
-| OpenCV import error | Ensure only one OpenCV distribution is installed |
+For a real webcam capture check, stop the application camera first, keep the backend running, then execute:
 
-## Known Limitations
+```powershell
+python -m vision.alphabet_e2e_check
+```
 
-- Currently recognizes five ASL signs rather than the complete ASL vocabulary.
-- Recognition accuracy depends on lighting, camera positioning and gesture execution.
-- Live recognition accuracy requires further evaluation.
-- The confidence score is a classifier score, not a guaranteed probability of correctness.
-- Signs are recorded individually rather than continuously translated.
-- AI-generated sentences may require user review.
-- Groq translation requires internet connectivity.
-- Hebrew speech depends on browser voice availability and is deferred for the current demonstration.
+Check the raw `(15, 128)` feature shape, valid `(N, 63)` alphabet samples, and the API response. A local preprocessing PASS does not establish classifier accuracy.
 
-## Future Improvements
+| Problem | What to check |
+| --- | --- |
+| Python import error | Activate `.venv`; install the root requirements file; use Python 3.12. |
+| Missing model / HTTP 503 | Check the required model paths and complete model training if necessary. |
+| HTTP 422 | Confirm the frame count is exactly 15 and the request fields match the API. |
+| HTTP 500 | Read the Uvicorn traceback. Check model, image decoding and Vision integration. |
+| Failed to fetch / CORS | Confirm ports 8000 and 5173 and the frontend origin allowed in `backend/config.py`. |
+| Camera capture fails | Release the camera in other applications; verify desktop and browser camera permissions. On Windows, OpenCV DirectShow can be an alternative to MSMF. |
+| Most letters are UNKNOWN | Verify the saved alphabet threshold, hand visibility, lighting and pose; restart backend after artifact changes. |
+| Translation fails | Check the Groq key, network access and provider limits. Never print or share the key. |
+| Hebrew voice unavailable | Try Edge with a compatible installed voice, or use Hebrew text with English/Russian speech as fallback. |
+| OpenCV conflict | Keep only the OpenCV distribution required by the root requirements file. |
 
-- Expand the supported ASL vocabulary.
-- Collect additional diverse training recordings.
-- Improve gesture classification accuracy.
-- Introduce continuous sign recognition.
-- Improve temporal movement classification.
-- Support additional sign languages.
-- Add reliable multilingual speech synthesis.
-- Introduce mobile-device support.
-- Improve accessibility and user customization.
-- Validate the application with experienced ASL users.
+## 7. Project layout
 
-## Development Workflow
-
-SilentVoice uses GitHub for collaborative development.
-
-Feature branches:
+Core files and generated artifacts (not an exhaustive listing):
 
 ```text
-main
-feature/backend
-feature/vision
-feature/ml
-feature/frontend
+SilentVoice/
+  backend/
+    main.py
+    config.py
+    schemas.py
+    utils.py
+    pipeline.py
+    alphabet_pipeline.py
+    llm.py
+    llm_groq.py
+  vision/
+    config.py
+    hand_tracking.py
+    alphabet_features.py
+    alphabet_check.py
+    alphabet_e2e_check.py
+  ml/
+    config.py
+    download_wlasl.py
+    download_asl_citizen.py
+    prepare_dataset.py
+    features.py
+    normalize.py
+    augment.py
+    train.py
+    predict.py
+    evaluate.py
+    alphabet_config.py
+    alphabet_dataset.py
+    alphabet_train.py
+    alphabet_predict.py
+    models/
+      asl_model.joblib
+      alphabet_model.joblib
+  frontend/
+    public/asl-alphabet.svg
+    src/
+      App.jsx
+      App.css
+      api.js
+      config.js
+      captureFrames.js
+      components/
+    package.json
+  tests/test_alphabet_features.py
+  data/
+  .env.example
+  .gitignore
+  requirements.txt
+  README.md
 ```
 
-Recommended workflow:
+## 8. Development and demonstration
 
-1. Create a feature branch.
-2. Implement and test changes.
-3. Commit only relevant files.
-4. Push the feature branch.
-5. Open a Pull Request.
-6. Review and merge into main.
+The team divided work across backend/integration, computer vision, machine learning and frontend. Keep the two recognition models independent, maintain the shared API contract and update the corresponding documentation when changing it.
 
-Never commit API keys, environment files, virtual environments, node_modules or restricted datasets.
+Before presenting:
 
-## Team
+- [ ] Start the backend and frontend on the presenting laptop; verify both model files and the MediaPipe bundle.
+- [ ] Verify that mock mode is disabled and camera permissions are granted.
+- [ ] Test multiple supported word signs and static letters using live recordings.
+- [ ] Confirm repeated letters, backspace, word construction, clearing and UNKNOWN rejection.
+- [ ] Generate a sentence using multiple confirmed words and test all three text languages.
+- [ ] Verify English or Russian speech and keep a working fallback language selected.
+- [ ] Verify internet access for Groq; prepare a backup demonstration recording.
 
-SilentVoice was developed by a four-person hackathon team with responsibilities divided into:
+Use targeted Git staging and coordinate changes with teammates. Never force-push, commit secrets, virtual environments, `node_modules`, raw restricted datasets or unauthorized model artifacts.
 
-| Role | Responsibility |
-|---|---|
-| Project Manager / Backend | Project architecture, FastAPI, LLM and integration |
-| Computer Vision Developer | MediaPipe and hand landmark detection |
-| Machine Learning Developer | Dataset preparation, training and classification |
-| Frontend Developer | React interface, webcam capture and speech synthesis |
+## 9. Data sources and attribution
 
-## Acknowledgments
+- **WLASL:** [Original repository](https://github.com/dxli94/WLASL) and [Voxel51 dataset mirror](https://huggingface.co/datasets/Voxel51/WLASL). Review the original dataset terms and underlying video rights.
+- **ASL Citizen:** [Microsoft Research project](https://www.microsoft.com/en-us/research/project/asl-citizen/) and [dataset license](https://www.microsoft.com/en-us/research/project/asl-citizen/dataset-license/). The dataset is subject to non-commercial research-use restrictions.
+- **Alphabet dataset:** Cabana Garceran del Vall, Elisa (2025), *American Sign Language Alphabet Dataset*, Mendeley Data, V1. <https://doi.org/10.17632/jdyksv2jhh.1>. Licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). SilentVoice samples the images, resizes/pads them and extracts normalized hand landmarks to train a separate classifier.
+- **Associated alphabet research paper:** Cabana, E. (2025). *Advancing Accessible AI: A Comprehensive Dataset and Neural Models for Real-Time American Sign Language Alphabet Classification*. In Intelligent Systems and Applications, IntelliSys 2025, Lecture Notes in Networks and Systems, vol. 1567, Springer, Cham. <https://doi.org/10.1007/978-3-032-00071-2_15>.
+- **ASL reference chart:** Darren Stone (Ds13), vectorized by Marnanel, derived from David Rakowski's Gallaudet-TT font. [Wikimedia Commons source](https://commons.wikimedia.org/wiki/File:Asl_alphabet_gallaudet.svg), marked public domain by the author.
+- **Hand tracking:** [Google MediaPipe Hand Landmarker](https://developers.google.com/edge/mediapipe/solutions/vision/hand_landmarker).
 
-- [MediaPipe](https://github.com/google-ai-edge/mediapipe)
-- [OpenCV](https://opencv.org/)
-- [Scikit-learn](https://scikit-learn.org/)
-- [FastAPI](https://fastapi.tiangolo.com/)
-- [React](https://react.dev/)
-- [Groq](https://groq.com/)
-- [WLASL](https://github.com/dxli94/WLASL)
-- [ASL Citizen](https://www.microsoft.com/en-us/research/project/asl-citizen/)
+Third-party datasets, assets and models retain their respective terms. Do not assume that the project's source-code terms grant rights to redistribute restricted datasets or derived artifacts. The local training instructions are provided for eligible authorized use.
 
-Datasets and third-party models remain subject to their respective licenses and usage conditions.
+## 10. Limitations and future work
+
+- Limited ASL word vocabulary and 24 static letters; motion-based J and Z are future work.
+- Recognition quality depends on the signer, gesture execution, lighting, camera position and training coverage.
+- Classifier confidence is not a calibrated guarantee of correctness. Alphabet rejection has not been independently validated against arbitrary non-letter gestures.
+- Signs are captured individually, not continuously; ASL grammar and non-manual signals are not fully modeled.
+- Translation requires internet access and may introduce wording not intended by the signer.
+- Speech depends on the browser's available voices. Hebrew speech is deferred.
+- Future work includes signer-independent validation, expanded vocabulary, dynamic-letter recognition, improved rejection and evaluation with experienced ASL users.
 
 ---
 
 **SilentVoice — Give every movement a voice.**
-
-Movement. Intelligence. Communication.
